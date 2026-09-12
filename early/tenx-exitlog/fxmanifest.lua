@@ -1,0 +1,11 @@
+fx_version 'cerulean'
+game 'gta5'
+lua54 'yes'
+name 'tenx-exitlog'
+author 'Tino'
+description 'Logs player disconnects (combat-log catcher) with nearby players'
+version '1.0.0'
+
+shared_script 'config.lua'
+client_script 'client.lua'
+server_script 'server.lua'
