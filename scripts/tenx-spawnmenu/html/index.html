@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app" class="hidden">
+        <div class="panel">
+            <header>
+                <div class="brand">
+                    <span class="grip" title="Drag to move">
+                        <svg viewBox="0 0 24 24" width="16" height="16"><circle cx="8" cy="6" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="8" cy="18" r="1.6"/><circle cx="16" cy="6" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="16" cy="18" r="1.6"/></svg>
+                    </span>
+                    <span class="dot"></span>
+                    <span class="title">Spawn Menu</span>
+                </div>
+                <div class="tabs">
+                    <button class="tab active" data-tab="vehicles">Vehicles</button>
+                    <button class="tab" data-tab="import">Import</button>
+                    <button class="tab" data-tab="items">Items &amp; Weapons</button>
+                </div>
+                <button class="close" id="closeBtn" title="Close (ESC)">&#10005;</button>
+            </header>
+
+            <div class="controls">
+                <div class="search-wrap">
+                    <svg viewBox="0 0 24 24" class="search-icon"><path d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                    <input id="search" type="text" placeholder="Search by name or spawn code...">
+                </div>
+                <div class="amount-wrap" id="amountWrap">
+                    <label>Qty</label>
+                    <input id="amount" type="number" value="1" min="1" max="1000">
+                </div>
+                <button class="toggle" id="showcaseBtn" title="Showcase: deletes your last spawned car when you spawn a new one">
+                    <span class="sw"></span>Showcase
+                </button>
+                <button class="toggle" id="vanillaBtn" title="Hide all base-game (vanilla) vehicles">
+                    <span class="sw"></span>Hide Vanilla
+                </button>
+                <button class="btn primary" id="photoBtn" title="Spawn each car in the list, snap a photo, save it">Take Pictures</button>
+            </div>
+
+            <div class="importbar hidden" id="importBar">
+                <textarea id="importInput" placeholder="Paste spawn codes here — separated by spaces, commas, or new lines (e.g. adder zentorno t20 ...)"></textarea>
+                <div class="importbtns">
+                    <button class="btn primary" id="addImportBtn">Add to Import</button>
+                    <button class="btn danger" id="clearImportBtn">Clear All</button>
+                </div>
+            </div>
+
+            <div class="meta"><span id="count">0 results</span><span class="hint">Click a card to spawn &middot; hover for rename</span></div>
+
+            <div class="grid" id="grid"></div>
+        </div>
+    </div>
+    <div id="preview" class="hidden"><img id="previewImg" src=""></div>
+    <script src="script.js"></script>
+</body>
+</html>

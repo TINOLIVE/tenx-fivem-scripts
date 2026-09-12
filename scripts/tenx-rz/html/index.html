@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FFA Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ══ IN-ROUND HUD ══════════════════════════════════════
+     Always loaded, never takes focus, renders nothing until
+     there is something to show. -->
+<div id="hud" class="hidden" aria-live="polite">
+
+  <!-- the drop-down banner -->
+  <div id="banner" class="banner">
+    <div class="banner-glow"></div>
+    <div class="banner-inner">
+      <span class="banner-eyebrow" id="bannerEyebrow"></span>
+      <span class="banner-title" id="bannerTitle"></span>
+      <span class="banner-sub" id="bannerSub"></span>
+      <div class="banner-bar"><i id="bannerBar"></i></div>
+    </div>
+  </div>
+
+  <!-- alive count and kills, top left -->
+  <div class="hud-corner" id="hudCorner">
+    <div class="alive" id="alive">
+      <span class="alive-num" id="aliveNum">0</span>
+      <span class="alive-slash">/</span>
+      <span class="alive-total" id="aliveTotal">0</span>
+      <span class="alive-label">alive</span>
+    </div>
+    <div class="killcount" id="killcount">
+      <svg class="kill-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="2" fill="currentColor"/>
+      </svg>
+      <span id="killNum">0</span>
+    </div>
+  </div>
+
+  <!-- kill feed stays centred under the banner -->
+  <div class="hud-stack">
+    <div class="feed" id="feed"></div>
+  </div>
+
+  <!-- parachute controls -->
+  <div class="drop-help hidden" id="dropHelp">
+    <span class="drop-eyebrow">You are falling</span>
+    <div class="drop-keys">
+      <div class="drop-key"><b>F</b><span>Open the parachute</span></div>
+      <div class="drop-key"><b>W A S D</b><span>Steer</span></div>
+      <div class="drop-key"><b>Shift</b><span>Dive faster</span></div>
+      <div class="drop-key"><b>Space</b><span>Brake as you land</span></div>
+    </div>
+    <span class="drop-note">It opens on its own if you leave it too late.</span>
+  </div>
+
+</div>
+
+<div id="root" class="hidden">
+  <div class="scrim"></div>
+
+  <main class="console" role="dialog" aria-label="FFA control panel">
+    <img class="watermark" src="logo.png" alt="">
+
+    <!-- ── HEADER ───────────────────────────────────────── -->
+    <header class="bar">
+      <div class="mark">
+        <span class="mark-season">NAIJA 2046 · SEASON 3</span>
+        <h1 class="mark-title">FFA Control</h1>
+      </div>
+
+      <div class="bar-right">
+        <div id="statusPill" class="pill pill-idle">
+          <span class="pill-dot"></span>
+          <span id="statusText">Idle</span>
+        </div>
+        <button id="closeBtn" class="icon-btn" aria-label="Close panel">&#10005;</button>
+      </div>
+    </header>
+
+    <div class="body">
+
+      <!-- ── RAIL ──────────────────────────────────────── -->
+      <nav class="rail" role="tablist">
+        <button class="rail-item is-active" data-tab="round" role="tab">
+          <span class="rail-label">Round</span>
+          <span class="rail-meta" id="railRound">Not running</span>
+        </button>
+        <button class="rail-item" data-tab="players" role="tab">
+          <span class="rail-label">Players</span>
+          <span class="rail-meta" id="railPlayers">&mdash;</span>
+        </button>
+        <button class="rail-item" data-tab="supplies" role="tab">
+          <span class="rail-label">Supplies</span>
+          <span class="rail-meta" id="railSupplies">&mdash;</span>
+        </button>
+        <button class="rail-item" data-tab="records" role="tab">
+          <span class="rail-label">Records</span>
+          <span class="rail-meta" id="railRecords">&mdash;</span>
+        </button>
+        <button class="rail-item" data-tab="winners" role="tab">
+          <span class="rail-label">Winners</span>
+          <span class="rail-meta" id="railWinners">Round history</span>
+        </button>
+        <button class="rail-item" data-tab="setup" role="tab">
+          <span class="rail-label">Setup</span>
+          <span class="rail-meta" id="railSetup">Everything else</span>
+        </button>
+      </nav>
+
+      <!-- ── PANELS ────────────────────────────────────── -->
+      <section class="stage">
+
+        <!-- ROUND ------------------------------------------------ -->
+        <div class="panel is-active" data-panel="round">
+
+          <div class="round-grid">
+
+            <!-- the signature: live ring dial -->
+            <figure class="dial">
+              <svg viewBox="0 0 260 260" class="dial-svg" aria-hidden="true">
+                <defs>
+                  <linearGradient id="chromeStroke" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"   stop-color="#DCE4DE"/>
+                    <stop offset="45%"  stop-color="#8A968E"/>
+                    <stop offset="55%"  stop-color="#5C6862"/>
+                    <stop offset="100%" stop-color="#B9C4BC"/>
+                  </linearGradient>
+                  <radialGradient id="zoneFill" cx="50%" cy="50%" r="50%">
+                    <stop offset="0%"   stop-color="#16E45F" stop-opacity="0.30"/>
+                    <stop offset="70%"  stop-color="#16E45F" stop-opacity="0.12"/>
+                    <stop offset="100%" stop-color="#16E45F" stop-opacity="0.04"/>
+                  </radialGradient>
+                </defs>
+
+                <circle cx="130" cy="130" r="116" class="dial-track"/>
+                <circle cx="130" cy="130" r="116" class="dial-outer"/>
+                <g id="dialTicks"></g>
+                <circle id="dialZone" cx="130" cy="130" r="116" class="dial-zone"/>
+                <circle id="dialEdge" cx="130" cy="130" r="116" class="dial-edge"/>
+                <circle cx="130" cy="130" r="2.5" class="dial-pin"/>
+              </svg>
+
+              <figcaption class="dial-readout">
+                <span class="dial-value" id="dialRadius">&mdash;</span>
+                <span class="dial-unit">metres</span>
+                <span class="dial-sub" id="dialSub">No round running</span>
+              </figcaption>
+            </figure>
+
+            <!-- controls -->
+            <div class="controls">
+
+              <div class="field">
+                <label class="field-label" for="radiusInput">
+                  Arena radius
+                  <span class="field-hint" id="radiusHint"></span>
+                </label>
+                <div class="field-row">
+                  <input type="range" id="radiusRange" min="50" max="1000" step="10" value="1000">
+                  <input type="number" id="radiusInput" min="5" max="1000" step="10" value="1000">
+                </div>
+              </div>
+
+              <div class="field">
+                <span class="field-label">Include this round</span>
+                <div class="chips">
+                  <button class="chip is-on" data-toggle="loot">Ground loot</button>
+                  <button class="chip is-on" data-toggle="airdrop">Airdrop</button>
+                  <button class="chip is-on" data-toggle="shrink">Closing ring</button>
+                </div>
+              </div>
+
+              <div class="lobby" id="lobbyBox">
+                <div class="lobby-count" id="lobbyCount">0</div>
+                <div class="lobby-text">
+                  <strong>waiting in the lobby</strong>
+                  <span id="lobbyNames">Nobody is standing in the pickup area.</span>
+                </div>
+              </div>
+
+              <div class="actions">
+                <button id="startBtn" class="btn btn-primary">Start round</button>
+                <button id="endBtn" class="btn btn-danger hidden">End round</button>
+              </div>
+
+              <div class="live-actions hidden" id="liveActions">
+                <span class="live-actions-label">While the round is live</span>
+                <div class="live-actions-row">
+                  <button class="btn btn-ghost" data-act="forceAirdrop">Drop a crate now</button>
+                  <button class="btn btn-ghost" data-act="forceShrink">Close the ring now</button>
+                  <button class="btn btn-ghost" data-act="spawnLoot">Scatter more supplies</button>
+                </div>
+              </div>
+
+              <div class="preview" id="previewBox">
+                <span class="preview-label">Dry run</span>
+                <p class="preview-copy">Watch the ring close at speed. Nobody is swept, no loot, no damage.</p>
+                <div class="preview-row">
+                  <button id="previewBtn" class="btn btn-ghost">Run preview</button>
+                  <button id="previewStopBtn" class="btn btn-ghost hidden">Stop preview</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- PLAYERS --------------------------------------------- -->
+        <div class="panel" data-panel="players">
+          <div class="panel-head">
+            <h2>Signed up</h2>
+            <span class="tally" id="queueTally">&mdash;</span>
+          </div>
+          <p class="note note-top">Players sign up at the ped and carry on with their day. When you start a round they're pulled in from wherever they are.</p>
+          <div class="table" id="queueTable">
+            <p class="empty">Nobody has signed up yet.</p>
+          </div>
+          <div class="actions actions-inline" style="margin-top:14px">
+            <button class="btn btn-ghost" data-act2="clearQueue">Empty the queue</button>
+          </div>
+
+          <div class="panel-head" style="margin-top:26px">
+            <h2>In the round</h2>
+            <span class="tally" id="playerTally">&mdash;</span>
+          </div>
+          <div class="table" id="playerTable">
+            <p class="empty">No round running. Start one and the roster appears here.</p>
+          </div>
+        </div>
+
+        <!-- SUPPLIES -------------------------------------------- -->
+        <div class="panel" data-panel="supplies">
+          <div class="panel-head">
+            <h2>On the ground</h2>
+            <span class="tally" id="lootTally">&mdash;</span>
+          </div>
+          <div class="stat-row">
+            <div class="stat">
+              <span class="stat-value" id="pileCount">0</span>
+              <span class="stat-label">supply piles</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value" id="dropCount">0</span>
+              <span class="stat-label">airdrop crates</span>
+            </div>
+            <div class="stat">
+              <span class="stat-value" id="nextDrop">&mdash;</span>
+              <span class="stat-label">next crate</span>
+            </div>
+          </div>
+          <div class="actions actions-inline">
+            <button class="btn btn-ghost" data-act="spawnLoot">Scatter more supplies</button>
+            <button class="btn btn-ghost" data-act="forceAirdrop">Drop a crate now</button>
+            <button class="btn btn-ghost" data-act="clearLoot">Clear everything</button>
+          </div>
+          <p class="note">Everything on the ground is destroyed when the round ends. Nothing carries over.</p>
+        </div>
+
+        <!-- RECORDS --------------------------------------------- -->
+        <div class="panel" data-panel="records">
+          <div class="panel-head">
+            <h2>Inventories held</h2>
+            <span class="tally" id="recordTally">&mdash;</span>
+          </div>
+          <p class="note note-top">Every row here is a player the script owes their inventory to. Rows clear themselves when a round ends. Anything still sitting here after that needs restoring by hand.</p>
+          <div class="table" id="recordTable">
+            <p class="empty">Nothing outstanding. Every inventory has been returned.</p>
+          </div>
+        </div>
+
+
+        <!-- WINNERS --------------------------------------------- -->
+        <div class="panel" data-panel="winners">
+          <div class="panel-head">
+            <h2>Round history</h2>
+            <span class="tally" id="winnerTally">&mdash;</span>
+          </div>
+
+          <div class="board" id="topBoard"></div>
+
+          <h3 class="sub-head">Every round</h3>
+          <div class="table" id="roundTable">
+            <p class="empty">No rounds recorded yet. The first one that finishes shows up here.</p>
+          </div>
+        </div>
+
+        <!-- SETUP ----------------------------------------------- -->
+        <div class="panel" data-panel="setup">
+          <div class="panel-head">
+            <h2>Setup</h2>
+            <span class="tally" id="setupTally">config.lua defaults</span>
+          </div>
+          <p class="note note-top">Changes here are saved separately and merged over <code>config.lua</code> when the resource starts. Your config file is never rewritten, so it stays the fallback you can always come back to. A round has to be stopped before anything can be changed.</p>
+
+          <div class="accordion" id="setupBody">
+
+            <section class="fold is-open" data-fold>
+              <button class="fold-head" type="button"><span>Loadout</span><i></i></button>
+              <div class="fold-body">
+                <p class="fold-note">What every player is handed when they're swept in.</p>
+                <div class="itemlist" data-list="loadout" data-cols="name,count"></div>
+                <button class="mini add-row" data-add="loadout">Add an item</button>
+                <div class="grid2">
+                  <label class="mini-field"><span>Infinite-ammo weapon</span><input type="text" data-set="loadout.primary"></label>
+                  <label class="mini-field"><span>Ammo mode</span>
+                    <select data-set="loadout.ammoMode">
+                      <option value="infinite">Never runs dry</option>
+                      <option value="fixed">One magazine only</option>
+                      <option value="items">Carry spare ammo</option>
+                    </select>
+                  </label>
+                  <label class="mini-field"><span>Starting magazine</span><input type="number" data-set="loadout.fixedAmmo"></label>
+                  <label class="mini-field"><span>Ammo item</span><input type="text" data-set="loadout.ammoItem"></label>
+                  <label class="mini-field"><span>Spare ammo given</span><input type="number" data-set="loadout.ammoItemCount"></label>
+                </div>
+              </div>
+            </section>
+
+            <section class="fold" data-fold>
+              <button class="fold-head" type="button"><span>Ground supplies</span><i></i></button>
+              <div class="fold-body">
+                <p class="fold-note">Each row drops that many separate piles, each holding that many of the item.</p>
+                <div class="itemlist" data-list="loot" data-cols="name,count,piles"></div>
+                <button class="mini add-row" data-add="loot">Add an item</button>
+                <div class="grid2">
+                  <label class="mini-field check"><input type="checkbox" data-set="loot.enabled"><span>Scatter supplies at all</span></label>
+                  <label class="mini-field check"><input type="checkbox" data-set="loot.respawn"><span>Top up during the round</span></label>
+                  <label class="mini-field"><span>Top up every (sec)</span><input type="number" data-set="loot.respawnInterval"></label>
+                  <label class="mini-field"><span>Top up size (0&ndash;1)</span><input type="number" step="0.05" data-set="loot.respawnFraction"></label>
+                  <label class="mini-field"><span>Pickup distance (m)</span><input type="number" step="0.5" data-set="loot.collectDistance"></label>
+                  <label class="mini-field"><span>Keep off centre (0&ndash;1)</span><input type="number" step="0.05" data-set="loot.minDistanceFactor"></label>
+                  <label class="mini-field"><span>Keep off edge (0&ndash;1)</span><input type="number" step="0.05" data-set="loot.maxDistanceFactor"></label>
+                </div>
+              </div>
+            </section>
+
+            <section class="fold" data-fold>
+              <button class="fold-head" type="button"><span>Airdrop</span><i></i></button>
+              <div class="fold-body">
+                <p class="fold-note">One crate, everything inside goes to whoever opens it.</p>
+                <div class="itemlist" data-list="airdrop" data-cols="name,count"></div>
+                <button class="mini add-row" data-add="airdrop">Add an item</button>
+                <div class="grid2">
+                  <label class="mini-field check"><input type="checkbox" data-set="airdrop.enabled"><span>Drop a crate</span></label>
+                  <label class="mini-field check"><input type="checkbox" data-set="airdrop.announce"><span>Announce it to everyone</span></label>
+                  <label class="mini-field wide"><span>Lands at (seconds into the round, comma separated for more than one)</span><input type="text" data-set="airdrop.spawnAfter"></label>
+                  <label class="mini-field"><span>Pickup distance (m)</span><input type="number" step="0.5" data-set="airdrop.collectDistance"></label>
+                </div>
+              </div>
+            </section>
+
+            <section class="fold" data-fold>
+              <button class="fold-head" type="button"><span>The zone timer</span><i></i></button>
+              <div class="fold-body">
+                <p class="fold-note">You set one number: how long the whole close takes. Every interval is worked out from it, so a 30 minute timer finishes in 30 minutes whatever size the arena is.</p>
+                <p class="fold-note" id="zoneTimerNote"></p>
+
+                <div class="grid2">
+                  <label class="mini-field check"><input type="checkbox" data-set="shrink.enabled"><span>Close the ring</span></label>
+                  <label class="mini-field"><span>Zone timer (minutes)</span><input type="number" step="1" id="zoneMinutes"></label>
+                  <label class="mini-field"><span>First close after (sec)</span><input type="number" data-set="shrink.startDelay"></label>
+                  <label class="mini-field"><span>Time spent waiting (0&ndash;0.9)</span><input type="number" step="0.05" data-set="shrink.holdFraction"></label>
+                </div>
+
+                <h4 class="fold-sub">Phases</h4>
+                <p class="fold-note">Each row is one close: the size it shrinks to as a fraction of the starting radius, and how much health a second the zone takes while that phase is current. Set the last row's size to <code>0</code> and the ring closes completely.</p>
+
+                <div class="phaselist" id="phaseList"></div>
+                <button class="mini add-row" id="addPhase">Add a phase</button>
+              </div>
+            </section>
+
+            <section class="fold" data-fold>
+              <button class="fold-head" type="button"><span>Damage outside the ring</span><i></i></button>
+              <div class="fold-body">
+                <div class="grid2">
+                  <label class="mini-field check"><input type="checkbox" data-set="damage.enabled"><span>Hurt players outside</span></label>
+                  <label class="mini-field check"><input type="checkbox" data-set="damage.lethal"><span>Let it finish them off</span></label>
+                  <label class="mini-field"><span>Tick every (ms)</span><input type="number" data-set="damage.tickInterval"></label>
+                  <label class="mini-field"><span>Health per tick</span><input type="number" data-set="damage.damagePerTick"></label>
+                </div>
+              </div>
+            </section>
+
+            <section class="fold" data-fold>
+              <button class="fold-head" type="button"><span>No-spawn areas</span><i></i></button>
+              <div class="fold-body">
+                <p class="fold-note">Places nobody is ever dropped and no supplies ever land. <strong>Water is already handled automatically</strong> &mdash; every coastline and lake is checked before anyone is placed, so you only need to mark things like cliffs, interiors or the runway.</p>
+                <div class="zonelist" id="zoneList"></div>
+                <div class="mark-row">
+                  <label class="mini-field"><span>Radius (m)</span><input type="number" id="zoneRadius" value="50"></label>
+                  <label class="mini-field"><span>Name it</span><input type="text" id="zoneLabel" placeholder="Runway"></label>
+                  <button class="btn btn-ghost" id="markZoneBtn">Mark where I'm standing</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="fold" data-fold>
+              <button class="fold-head" type="button"><span>Lobby and arena</span><i></i></button>
+              <div class="fold-body">
+                <p class="fold-note">The lobby is where players gather to be swept in. It is not the play area.</p>
+                <div class="grid2">
+                  <label class="mini-field check"><input type="checkbox" data-set="lobby.enabled"><span>Sweep from the lobby</span></label>
+                  <label class="mini-field"><span>Lobby radius (m)</span><input type="number" data-set="lobby.radius"></label>
+                  <label class="mini-field"><span>Lobby X</span><input type="number" step="0.01" data-set="lobby.coords.x"></label>
+                  <label class="mini-field"><span>Lobby Y</span><input type="number" step="0.01" data-set="lobby.coords.y"></label>
+                  <label class="mini-field"><span>Lobby Z</span><input type="number" step="0.01" data-set="lobby.coords.z"></label>
+                  <button class="mini use-pos wide" data-pos="lobby.coords">Use where I'm standing</button>
+                  <label class="mini-field"><span>Default radius (m)</span><input type="number" data-set="arena.defaultRadius"></label>
+                  <label class="mini-field"><span>Largest allowed (m)</span><input type="number" data-set="arena.maxRadius"></label>
+                  <label class="mini-field check"><input type="checkbox" data-set="arena.confirmBeforeStart"><span>Ask before sweeping</span></label>
+                  <label class="mini-field check"><input type="checkbox" data-set="arena.staffImmune"><span>Staff are never swept</span></label>
+                </div>
+              </div>
+            </section>
+
+            <section class="fold" data-fold>
+              <button class="fold-head" type="button"><span>Death and the holding area</span><i></i></button>
+              <div class="fold-body">
+                <p class="fold-note">Where players wait out the round after they're knocked out.</p>
+                <div class="grid2">
+                  <label class="mini-field"><span>Holding X</span><input type="number" step="0.01" data-set="death.coords.x"></label>
+                  <label class="mini-field"><span>Holding Y</span><input type="number" step="0.01" data-set="death.coords.y"></label>
+                  <label class="mini-field"><span>Holding Z</span><input type="number" step="0.01" data-set="death.coords.z"></label>
+                  <label class="mini-field"><span>Facing</span><input type="number" step="0.01" data-set="death.coords.w"></label>
+                  <button class="mini use-pos wide" data-pos="death.coords">Use where I'm standing</button>
+                  <label class="mini-field"><span>Spread them over (m)</span><input type="number" data-set="death.spread"></label>
+                  <label class="mini-field"><span>Wait before moving (sec)</span><input type="number" data-set="death.delay"></label>
+                  <label class="mini-field"><span>Health on arrival</span><input type="number" data-set="death.health"></label>
+                  <label class="mini-field"><span>Armour on arrival</span><input type="number" data-set="death.armour"></label>
+                  <label class="mini-field check wide"><input type="checkbox" data-set="death.gatherSurvivorsOnEnd"><span>Bring survivors here when the round ends</span></label>
+                </div>
+              </div>
+            </section>
+
+            <section class="fold" data-fold>
+              <button class="fold-head" type="button"><span>The drop-in</span><i></i></button>
+              <div class="fold-body">
+                <p class="fold-note">How players are spread across the arena at the start.</p>
+                <div class="grid2">
+                  <label class="mini-field check"><input type="checkbox" data-set="scatter.enabled"><span>Scatter them at the start</span></label>
+                  <label class="mini-field"><span>Space apart by (m)</span><input type="number" data-set="scatter.minSpacing"></label>
+                  <label class="mini-field"><span>Keep off centre (0&ndash;1)</span><input type="number" step="0.05" data-set="scatter.minDistanceFactor"></label>
+                  <label class="mini-field"><span>Keep off edge (0&ndash;1)</span><input type="number" step="0.05" data-set="scatter.maxDistanceFactor"></label>
+                  <label class="mini-field"><span>Wait for terrain, max (sec)</span><input type="number" data-set="scatter.settleTime"></label>
+                  <label class="mini-field check"><input type="checkbox" data-set="autoEnd"><span>End when one is left</span></label>
+                  <label class="mini-field"><span>Delay before that (sec)</span><input type="number" data-set="autoEndDelay"></label>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+          <div class="setup-actions">
+            <button id="saveSettingsBtn" class="btn btn-primary">Save settings</button>
+            <button id="resetSettingsBtn" class="btn btn-ghost">Back to config.lua</button>
+          </div>
+        </div>
+
+      </section>
+    </div>
+
+    <footer class="foot">
+      <span id="footMsg">Ready</span>
+      <span class="foot-brand">tenx-rz</span>
+    </footer>
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<link rel="stylesheet" href="style.css" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- ============ TRAVEL OVERLAY (no focus) ============ -->
+  <div id="travel" class="hidden">
+    <div class="cab">
+      <div class="cab-body"><span></span><span></span></div>
+      <div class="strip"><i></i></div>
+    </div>
+    <div class="t-small">TRAVELING TO</div>
+    <div id="t-floor" class="t-floor">Floor</div>
+    <div class="t-wait">Please wait…</div>
+    <div class="t-bar"><div id="t-fill" class="t-fill"></div></div>
+  </div>
+
+  <!-- ============ ADMIN DASHBOARD (focus) ============ -->
+  <div id="admin" class="hidden">
+   <div class="window">
+    <aside class="side">
+      <div class="brand"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M9 6h.01M15 6h.01M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/></svg></div><span id="brandName">NAIJA ELEVATORS</span></div>
+      <nav id="nav">
+        <div class="nav-item active" data-view="dashboard"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg></i><span>Dashboard</span></div>
+        <div class="nav-item" data-view="create"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></i><span>Create Elevator</span></div>
+        <div class="nav-item" data-view="list"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></i><span>Elevators</span></div>
+      </nav>
+      <button id="closeBtn" class="close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg> Close</button>
+    </aside>
+
+    <main class="main">
+      <!-- DASHBOARD -->
+      <section id="view-dashboard" class="view">
+        <div class="head"><div><h1>Elevators Overview</h1><p>Live status across the city</p></div></div>
+        <div class="stats" id="stats"></div>
+        <div class="panel">
+          <h3>Recent</h3>
+          <div id="recent" class="recent"></div>
+        </div>
+      </section>
+
+      <!-- CREATE / EDIT -->
+      <section id="view-create" class="view hidden">
+        <div class="head"><div><h1 id="createTitle">Create Elevator</h1><p>Build and deploy an elevator</p></div></div>
+
+        <div class="steps" id="steps">
+          <div class="step active" data-step="1"><span>1</span>Basic</div>
+          <div class="step" data-step="2"><span>2</span>Floors</div>
+          <div class="step" data-step="3"><span>3</span>Access</div>
+          <div class="step" data-step="4"><span>4</span>Review</div>
+        </div>
+
+        <div class="panel">
+          <!-- step 1 -->
+          <div class="wstep" data-w="1">
+            <label>Elevator name</label>
+            <input id="fName" type="text" placeholder="e.g. Tropical Heights" maxlength="64" />
+            <span class="hint">4–64 characters</span>
+            <label>Allow vehicles</label>
+            <label class="switch"><input id="fVeh" type="checkbox"><span></span> Cars can ride this elevator</label>
+          </div>
+
+          <!-- step 2 -->
+          <div class="wstep hidden" data-w="2">
+            <div class="row-between">
+              <label style="margin:0">Floors</label>
+              <button class="btn ghost sm" id="addFloor">+ Add floor</button>
+            </div>
+            <span class="hint">Name each floor, then stand where the doors should be and hit <b>Set position</b>.</span>
+            <div id="floors" class="floors"></div>
+          </div>
+
+          <!-- step 3 -->
+          <div class="wstep hidden" data-w="3">
+            <label>Access level</label>
+            <select id="fAccess">
+              <option value="public">Public — anyone</option>
+              <option value="restricted">Restricted — rules below</option>
+            </select>
+
+            <div id="restrictBox" class="restrict hidden">
+              <label>Jobs (any of these)</label>
+              <div class="tagbox"><input id="jobInput" placeholder="type a job + Enter"><div id="jobTags" class="tags"></div></div>
+
+              <label>Card items — holding ANY ONE grants access</label>
+              <div class="tagbox"><input id="itemInput" placeholder="type an item name + Enter"><div id="itemTags" class="tags"></div></div>
+
+              <label>Passcode (optional)</label>
+              <input id="fPass" type="text" placeholder="leave blank for none" />
+              <span class="hint">Only asked if the player has no matching job or card.</span>
+            </div>
+          </div>
+
+          <!-- step 4 -->
+          <div class="wstep hidden" data-w="4">
+            <div id="review" class="review"></div>
+          </div>
+
+          <div class="wnav">
+            <button class="btn ghost" id="prevBtn">Previous</button>
+            <button class="btn" id="nextBtn">Next</button>
+            <button class="btn save hidden" id="saveBtn">Save Elevator</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- LIST -->
+      <section id="view-list" class="view hidden">
+        <div class="head"><div><h1>Elevators</h1><p>Manage everything you've built</p></div>
+          <button class="btn" id="newBtn">+ New elevator</button></div>
+        <div class="panel nop">
+          <table class="tbl">
+            <thead><tr><th>Name</th><th>Floors</th><th>Access</th><th>Vehicles</th><th>Uses</th><th>Actions</th></tr></thead>
+            <tbody id="listBody"></tbody>
+          </table>
+          <div id="listEmpty" class="empty">No elevators yet. Hit <b>Create Elevator</b> to build one.</div>
+        </div>
+      </section>
+    </main>
+   </div>
+  </div>
+
+  <!-- ============ TOASTS ============ -->
+  <div id="toasts"></div>
+
+  <!-- ============ FLOOR PICKER (in-world) ============ -->
+  <div id="picker" class="hidden">
+    <div class="pcard">
+      <div class="phead">
+        <div><div class="psub">Elevator</div><h3 id="pTitle">Elevator</h3></div>
+        <button id="pClose" class="pclose">✕</button>
+      </div>
+      <div id="pBody" class="pbody"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
