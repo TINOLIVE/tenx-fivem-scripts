@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  /* ── asleep ──
+     Sent when no player is near this board. Nothing is unmounted -- the page
+     stays exactly as it was so waking is instant -- but nothing moves, and a
+     browser with nothing moving in it costs nothing to composite. */
+  body.sleep *,
+  body.sleep *::before,
+  body.sleep *::after {
+    animation-play-state: paused !important;
+    transition: none !important;
+  }
+  body.sleep { will-change: auto; }
+
+  /* Rendered onto a prop in the world. Everything is sized for being read at
+     twenty metres, not from a desk -- heavy weights, wide spacing, and far
+     fewer rows than a panel would carry. */
+
+  :root {
+    --gold:      #E8B838;
+    --gold-hot:  #FFD86B;
+    --gold-deep: #8A6410;
+    --bone:      #E8EFEA;
+    --ash:       #8A9A90;
+    --blue:      #7CC0F0;
+    --emerald:   #16E45F;
+    --danger:    #E4483C;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    /* The size the design is built for.
+    
+       I dropped the DUI to 1024x512 for performance and then tried to scale
+       the page to fit it. Both attempts made the boards worse -- first
+       cropped, then letterboxed. The saving was small next to the DUI leak
+       that was the real cost, and it is not worth a board that looks wrong.
+    
+       Authored size, surface size, same number. */
+    width: 1280px; height: 640px;
+    overflow: hidden;
+    background: #000;
+    font-family: 'Chakra Petch', sans-serif;
+    color: var(--bone);
+  }
+
+  /* ── the frame ──
+     A lit gold edge, because on a dark prop in daylight an unlit board just
+     reads as a blank surface. */
+  .frame {
+    position: relative;
+    width: 100%; height: 100%;
+    padding: 16px;
+    background: linear-gradient(180deg, #10161C 0%, #070B0F 100%);
+    border: 4px solid var(--gold);
+    border-radius: 22px;
+    box-shadow:
+      inset 0 0 60px rgba(232,184,56,.16),
+      inset 0 0 0 2px rgba(255,216,107,.30);
+  }
+
+  .inner {
+    position: relative;
+    width: 100%; height: 100%;
+    padding: 22px 30px 20px;
+    background:
+      radial-gradient(80% 50% at 50% 0%, rgba(232,184,56,.10), transparent 62%),
+      linear-gradient(180deg, #0B1219 0%, #060A0E 100%);
+    border-radius: 12px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* watermark, so the middle of the board isn't dead space */
+  .inner::before {
+    content: 'PVP';
+    position: absolute;
+    left: 50%; top: 56%;
+    transform: translate(-50%, -50%);
+    font-size: 92px; font-weight: 700; letter-spacing: .1em;
+    color: rgba(232,184,56,.055);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  /* ── title ── */
+  h1 {
+    text-align: center;
+    font-size: 44px; font-weight: 700;
+    letter-spacing: .05em;
+    color: var(--gold-hot);
+    text-shadow:
+      0 0 18px rgba(232,184,56,.55),
+      0 0 46px rgba(232,184,56,.28),
+      0 3px 0 rgba(0,0,0,.6);
+    margin-bottom: 14px;
+  }
+
+  /* ── table ── */
+  .table {
+    position: relative;
+    flex: 1;
+    display: flex; flex-direction: column;
+    background: rgba(4,8,12,.72);
+    border: 2px solid rgba(232,184,56,.55);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .cols, .row {
+    display: grid;
+    grid-template-columns: 84px 1fr 104px 116px 100px 96px 116px 108px;
+    align-items: center;
+    gap: 6px;
+    padding: 0 18px;
+  }
+
+  .cols {
+    height: 46px;
+    background: rgba(232,184,56,.10);
+    border-bottom: 2px solid rgba(232,184,56,.45);
+    font-size: 22px; font-weight: 700;
+    letter-spacing: .04em;
+    color: var(--gold);
+    text-align: center;
+  }
+  .cols .player { text-align: left; padding-left: 6px; }
+
+  /* Rows are a fixed height, not flex. Letting them stretch meant two
+     players split the whole board between them and the table read as two
+     lines floating in a void. */
+  .rows {
+    flex: 1;
+    display: flex; flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  .row {
+    height: 52px;
+    font-size: 26px;
+    text-align: center;
+    border-bottom: 1px solid rgba(232,184,56,.13);
+  }
+
+  /* Empty slots keep the table its full size, so the board does not change
+     shape as players join the board. */
+  .row.blank {
+    background: transparent !important;
+    border-bottom-color: rgba(232,184,56,.06);
+  }
+  .row.blank .rank { color: rgba(232,184,56,.14); }
+  .row:nth-child(even) { background: rgba(232,184,56,.045); }
+  .row:last-child { border-bottom: 0; }
+
+  .rank { font-weight: 700; color: var(--bone); }
+
+  /* the top three carry the colour; everyone else stays quiet */
+  .r1 .rank { color: var(--gold-hot); text-shadow: 0 0 14px rgba(232,184,56,.6); }
+  .r2 .rank { color: #D8E2DB; }
+  .r3 .rank { color: #D2914F; }
+  .r1 { background: rgba(232,184,56,.11) !important; }
+
+  .player {
+    display: flex; align-items: center; gap: 12px;
+    text-align: left;
+    min-width: 0;
+  }
+
+  .badge {
+    flex: 0 0 auto;
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 3px 11px 3px 4px;
+    background: rgba(232,184,56,.12);
+    border: 1px solid rgba(232,184,56,.42);
+    border-radius: 999px;
+  }
+  .pip {
+    width: 22px; height: 22px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(160deg, var(--gold-hot), var(--gold-deep));
+    color: #100C02;
+    font-size: 13px; font-weight: 700;
+  }
+  .lv {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 16px; font-weight: 600;
+    color: var(--gold);
+    white-space: nowrap;
+  }
+
+  .name {
+    color: var(--blue);
+    font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .r1 .name { color: var(--gold-hot); }
+
+  .num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 24px;
+    font-variant-numeric: tabular-nums;
+  }
+  .kills  { color: var(--bone); }
+  .deaths { color: var(--ash); }
+  .ratio  { color: var(--bone); }
+  .wins   { color: var(--emerald); }
+  .losses { color: var(--danger); }
+  .pts    { color: var(--gold); font-weight: 600; }
+
+  /* ── empty ── */
+  .empty {
+    flex: 1;
+    display: grid; place-items: center;
+    text-align: center;
+  }
+  .empty p { font-size: 32px; color: var(--ash); }
+  .empty span {
+    display: block; margin-top: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 18px; letter-spacing: .24em; text-transform: uppercase;
+    color: var(--gold-deep);
+  }
+
+  /* ── footer ── */
+  footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 15px; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--ash);
+  }
+  /* A red-edged variant, kept for any board that wants it. */
+  body.is-rz .frame { border-color: #E4483C; box-shadow:
+      inset 0 0 60px rgba(228,72,60,.16),
+      inset 0 0 0 2px rgba(255,120,110,.28); }
+  body.is-rz h1 {
+    color: #FF9E92;
+    text-shadow: 0 0 18px rgba(228,72,60,.55), 0 0 46px rgba(228,72,60,.28), 0 3px 0 rgba(0,0,0,.6);
+  }
+  body.is-rz .table { border-color: rgba(228,72,60,.55); }
+  body.is-rz .cols { background: rgba(228,72,60,.10); border-bottom-color: rgba(228,72,60,.45); color: #FF9E92; }
+  body.is-rz .row.r1 { background: rgba(228,72,60,.11) !important; }
+  body.is-rz .r1 .rank, body.is-rz .r1 .name { color: #FF9E92; }
+  body.is-rz .pts { color: #FF9E92; }
+  body.is-rz .inner::before { color: rgba(228,72,60,.06); }
+
+  /* ranked reads violet, the way it does everywhere else */
+  body.is-ranked .frame { border-color: #A855F7; box-shadow:
+      inset 0 0 60px rgba(168,85,247,.18),
+      inset 0 0 0 2px rgba(213,170,255,.3); }
+  body.is-ranked h1 {
+    color: #D5AAFF;
+    text-shadow: 0 0 18px rgba(168,85,247,.6), 0 0 46px rgba(168,85,247,.3), 0 3px 0 rgba(0,0,0,.6);
+  }
+  body.is-ranked .table { border-color: rgba(168,85,247,.55); }
+  body.is-ranked .cols { background: rgba(168,85,247,.10); border-bottom-color: rgba(168,85,247,.45); color: #D5AAFF; }
+  body.is-ranked .row.r1 { background: rgba(168,85,247,.12) !important; }
+  body.is-ranked .r1 .rank, body.is-ranked .r1 .name { color: #D5AAFF; }
+  body.is-ranked .pts { color: #D5AAFF; }
+  body.is-ranked .inner::before { content: 'RANKED'; color: rgba(168,85,247,.07); }
+
+  .live { color: var(--emerald); }
+  .live::before {
+    content: '';
+    display: inline-block;
+    width: 9px; height: 9px; margin-right: 9px;
+    border-radius: 50%;
+    background: var(--emerald);
+    box-shadow: 0 0 10px var(--emerald);
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="inner">
+    <h1 id="title">NAIJA 2046 PVP LEADERBOARD</h1>
+
+    <div class="table">
+      <div class="cols" id="cols">
+        <span>Rank</span>
+        <span class="player">Player</span>
+        <span id="colK">Kills</span>
+        <span id="colD">Deaths</span>
+        <span id="colR">K/D</span>
+        <span id="colA">Wins</span>
+        <span id="colB">Losses</span>
+        <span>Points</span>
+      </div>
+      <div class="rows" id="rows"></div>
+    </div>
+
+    <footer>
+      <span id="footer">NAIJA 2046 &middot; 100 a win &middot; 25 a loss &middot; 10 a kill</span>
+      <span class="live" id="updated">Waiting for data</span>
+    </footer>
+  </div>
+</div>
+
+<script>
+  const esc = s => String(s ?? '').replace(/[&<>"']/g,
+    c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+  const ROWS = 8;   // fixed row count, so the table never reflows
+
+  function render(data) {
+    // Title and footer come from config, so the branding is one value rather
+    // than an edit to this file.
+    if (data && data.title)  document.getElementById('title').textContent = data.title;
+    if (data && data.footer) document.getElementById('footer').textContent = data.footer;
+
+    // Different boards measure different things, so the last two stat
+    // columns change with the board.
+    const rz = false;   // the free-for-all board is gone
+    const rk = data && data.which === 'ranked';
+
+    // Three boards measuring three things, so the columns follow the board.
+    document.getElementById('colK').textContent = rk ? 'Rating' : 'Kills';
+    document.getElementById('colD').textContent = rk ? 'Peak' : 'Deaths';
+    document.getElementById('colR').textContent = rk ? 'Win %' : 'K/D';
+    document.getElementById('colA').textContent = rk ? 'Wins' : rz ? 'Streak' : 'Wins';
+    document.getElementById('colB').textContent = rk ? 'Losses' : rz ? '\u2014' : 'Losses';
+    document.body.classList.toggle('is-rz', rz);
+    document.body.classList.toggle('is-ranked', rk);
+
+    // A ranked row is rating and tier, not kills and points.
+    if (rk) {
+      const host = document.getElementById('rows');
+      const rows = (data && data.rows) || [];
+
+      if (!rows.length) {
+        host.innerHTML =
+          `<div class="empty"><p>Nobody has finished their placements</p>
+           <span>Ten ranked matches to appear here</span></div>`;
+        document.getElementById('updated').textContent = 'No data';
+        return;
+      }
+
+      host.innerHTML = rows.slice(0, ROWS).map(r => `
+        <div class="row r${r.rank}">
+          <span class="rank">${r.rank}</span>
+          <span class="player">
+            <span class="badge" style="border-color:${esc(r.tierAccent || '#A855F7')}55;
+                                       background:${esc(r.tierAccent || '#A855F7')}1F">
+              <span class="lv" style="color:${esc(r.tierHue || '#C79CFF')}">${esc(r.tierName)}</span>
+            </span>
+            <span class="name">${esc(r.name)}</span>
+          </span>
+          <span class="num kills">${r.elo}</span>
+          <span class="num deaths">${r.peak}</span>
+          <span class="num ratio">${r.winRate}%</span>
+          <span class="num wins">${r.wins}</span>
+          <span class="num losses">${r.losses}</span>
+          <span class="num pts">${r.streak > 0 ? '+' + r.streak : r.streak}</span>
+        </div>`).join('')
+        + Array.from({ length: Math.max(0, ROWS - rows.length) }, (_, i) => `
+        <div class="row blank"><span class="rank">${rows.length + i + 1}</span>
+          <span class="player"></span><span></span><span></span><span></span>
+          <span></span><span></span><span></span></div>`).join('');
+
+      document.getElementById('updated').textContent = 'Live';
+      return;
+    }
+
+    const rows = (data && data.rows) || [];
+    const host = document.getElementById('rows');
+
+    if (!rows.length) {
+      host.innerHTML =
+        `<div class="empty"><p>No matches played yet</p>
+         <span>Be the first name on this board</span></div>`;
+      document.getElementById('updated').textContent = 'No data';
+      return;
+    }
+
+    // Pad to a full table so it keeps its shape whether two people have
+    // played or twenty.
+    const shown = rows.slice(0, ROWS);
+    const blanks = Math.max(0, ROWS - shown.length);
+
+    // Built once at ROWS height, then updated in place. The table is always
+    // the same size -- blanks pad it -- so the structure never needs to
+    // change and only the text does.
+    if (host.dataset.built !== String(ROWS)) {
+      host.innerHTML = Array.from({ length: ROWS }, () => `
+        <div class="row">
+          <span class="rank"></span>
+          <span class="player">
+            <span class="badge"><span class="pip"></span><span class="lv"></span></span>
+            <span class="name"></span>
+          </span>
+          <span class="num kills"></span>
+          <span class="num deaths"></span>
+          <span class="num ratio"></span>
+          <span class="num wins"></span>
+          <span class="num losses"></span>
+          <span class="num pts"></span>
+        </div>`).join('');
+      host.dataset.built = String(ROWS);
+    }
+
+    const put = (el, v) => {
+      if (!el) return;
+      const s2 = String(v ?? '');
+      if (el.textContent !== s2) el.textContent = s2;
+    };
+
+    for (let i = 0; i < ROWS; i++) {
+      const row = host.children[i];
+      if (!row) continue;
+
+      const r = shown[i];
+      const filled = !!r;
+
+      row.className = 'row' + (filled ? ` r${r.rank}` : ' blank');
+
+      put(row.querySelector('.rank'), filled ? r.rank : i + 1);
+      row.querySelector('.badge').style.visibility = filled ? '' : 'hidden';
+
+      if (!filled) {
+        ['.name', '.kills', '.deaths', '.ratio', '.wins', '.losses', '.pts']
+          .forEach(sel => put(row.querySelector(sel), ''));
+        continue;
+      }
+
+      put(row.querySelector('.pip'), (r.name || '?').charAt(0).toUpperCase());
+      put(row.querySelector('.lv'), `Lv. ${r.level ?? 1}`);
+      put(row.querySelector('.name'), r.name);
+      put(row.querySelector('.kills'), r.kills);
+      put(row.querySelector('.deaths'), r.deaths);
+      put(row.querySelector('.ratio'), r.kd);
+      put(row.querySelector('.wins'), rz ? (r.streak || 0) : r.wins);
+      put(row.querySelector('.losses'), rz ? '' : r.losses);
+      put(row.querySelector('.pts'), r.points);
+    }
+
+    document.getElementById('updated').textContent = 'Live';
+  }
+
+  /* One listener, registered once.
+   
+     A second listener on the same page would double every update -- the work
+     twice over for the same result -- and they are easy to add by accident
+     when a page gets edited. */
+  window.addEventListener('message', e => {
+    const d = e.data || {};
+
+    // Asleep: nobody is near this board. Everything stops moving, and the
+    // page is left exactly as it is so waking is instant.
+    if (d.action === 'sleep') {
+      document.body.classList.add('sleep');
+      return;
+    }
+
+    if (d.action === 'wake') {
+      document.body.classList.remove('sleep');
+      return;
+    }
+
+    // Nothing is rendered while asleep. The client should not be sending
+    // anything either, but a page that draws when nobody can see it is the
+    // exact cost this is here to avoid.
+    if (document.body.classList.contains('sleep')) return;
+
+    if (d.action === 'board') render(d.data);
+  });
+
+  // Open this file with ?preview in a browser to design it without FiveM.
+  if (new URLSearchParams(location.search).has('preview')) {
+    render({ rows: [
+      { rank:1, name:'Rio Malone',    level:34, kills:41, deaths:17, kd:'2.41', wins:14, losses:3, points:1840 },
+      { rank:2, name:'Jadoh Escober', level:39, kills:38, deaths:20, kd:'1.90', wins:11, losses:5, points:1520 },
+      { rank:3, name:'Jayden Black',  level:26, kills:29, deaths:18, kd:'1.61', wins:9,  losses:6, points:1310 },
+      { rank:4, name:'TINO LIVE',     level:34, kills:22, deaths:19, kd:'1.16', wins:7,  losses:7, points:980  },
+      { rank:5, name:'DUEL XANDER',   level:44, kills:15, deaths:18, kd:'0.83', wins:4,  losses:9, points:640  },
+      { rank:6, name:'King Nasir',    level:12, kills:9,  deaths:14, kd:'0.64', wins:2,  losses:8, points:380  }
+    ]});
+  }
+</script>
+</body>
+</html>

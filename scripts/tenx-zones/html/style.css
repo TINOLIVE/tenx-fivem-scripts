@@ -1,0 +1,655 @@
+/*
+    tenx-zones :: panel
+
+    Deliberately NOT a centred modal. You are shaping a boundary in the
+    world, so the world has to stay visible -- the controls live on the
+    left edge as an instrument rail and the live number sits at the
+    bottom where your eyes already are.
+
+    Colour carries meaning here rather than decorating: every zone
+    shows its own shell colour as a spine down the left of its row, and
+    its state reads as chips -- what shape it is, whether it blocks,
+    whether it draws. You should be able to scan the list and know what
+    each zone does without reading a word.
+
+    No backdrop-filter anywhere. FiveM's CEF renders it as solid black,
+    which is the bug that got it stripped out of the arena panels too.
+    Every translucent surface here is a flat rgba fill.
+*/
+
+:root {
+    /* Base: deep petrol, warmer and less flat than pure black */
+    --ink:      #060f16;
+    --rail:     #0a1720;
+    --raise:    #10222e;
+    --lift:     #16303f;
+    --edge:     #1c3d4f;
+
+    /* NAIJA green stays the brand signal */
+    --signal:   #2ce884;
+    --signal-d: #0d3d26;
+
+    /* Accents, used to tell states apart at a glance */
+    --dome:     #38d0ff;
+    --dome-d:   #0b2f42;
+    --walls:    #ffb03a;
+    --walls-d:  #3d2a09;
+    --block:    #ff5a48;
+    --block-d:  #3f1410;
+    --ghosted:  #8b7bd8;
+    --ghost-d:  #241d40;
+
+    --text:     #dfeef5;
+    --dim:      #7d9db0;
+    --faint:    #4d6d80;
+
+    --rail-w:   clamp(390px, 30vw, 560px);
+    --r:        8px;
+    --r-sm:     5px;
+
+    --face: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
+    --mono: "Consolas", "SF Mono", ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    font-family: var(--face);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+}
+
+[hidden] { display: none !important; }
+
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+button:focus-visible,
+input:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+
+
+/* ============================================================
+   RAIL
+   ============================================================ */
+
+#rail {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: var(--rail-w);
+    display: flex;
+    flex-direction: column;
+    background: rgba(10, 23, 32, 0.96);
+    border-right: 1px solid var(--edge);
+    box-shadow: 24px 0 60px rgba(0, 0, 0, 0.45);
+}
+
+.rail-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 22px 24px 18px;
+    border-bottom: 1px solid var(--edge);
+    background: linear-gradient(180deg, rgba(44, 232, 132, 0.07), transparent);
+}
+
+.rail-head h1 {
+    font-size: 1.5rem;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+}
+
+/* Brand eyebrow above the title */
+.rail-head h1::before {
+    content: "NAIJA 2046";
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    color: var(--walls);
+}
+
+#count {
+    margin-top: 5px;
+    font-size: 0.8125rem;
+    color: var(--dim);
+    font-variant-numeric: tabular-nums;
+}
+
+.icon {
+    width: 30px; height: 30px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    font-size: 1.25rem;
+    line-height: 1;
+    color: var(--faint);
+    border-radius: var(--r-sm);
+    transition: color 120ms ease, background 120ms ease;
+}
+.icon:hover { color: var(--block); background: var(--block-d); }
+
+
+/* ============================================================
+   SHAPE PICKERS
+   ============================================================ */
+
+.make {
+    display: grid;
+    gap: 10px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--edge);
+}
+
+.make-btn {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 15px 16px;
+    text-align: left;
+    border-radius: var(--r);
+    background: var(--raise);
+    border: 1px solid var(--edge);
+    transition: border-color 130ms ease, background 130ms ease, transform 130ms ease;
+}
+.make-btn:hover { transform: translateX(2px); }
+
+.make-btn strong {
+    display: block;
+    font-size: 0.9375rem;
+    font-weight: 600;
+}
+.make-btn em {
+    display: block;
+    margin-top: 3px;
+    font-size: 0.8125rem;
+    font-style: normal;
+    color: var(--dim);
+}
+
+/* Each shape owns a colour, and the same colour tags it everywhere */
+.make-btn[data-mode="sphere"]:hover {
+    border-color: var(--dome);
+    background: var(--dome-d);
+}
+.make-btn[data-mode="poly"]:hover {
+    border-color: var(--walls);
+    background: var(--walls-d);
+}
+
+.glyph {
+    width: 38px; height: 38px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    border: 2px solid;
+}
+.glyph.dome {
+    border-color: var(--dome);
+    background: radial-gradient(circle at 34% 30%, rgba(56, 208, 255, 0.5), transparent 62%);
+}
+.glyph.walls {
+    border-color: var(--walls);
+    border-radius: 5px;
+    transform: perspective(50px) rotateX(26deg);
+    background: rgba(255, 176, 58, 0.16);
+}
+
+
+/* ============================================================
+   ZONE LIST
+   ============================================================ */
+
+.list { flex: 1; overflow-y: auto; padding: 6px 0 14px; }
+
+.list::-webkit-scrollbar { width: 9px; }
+.list::-webkit-scrollbar-thumb {
+    background: var(--lift);
+    border-radius: 5px;
+    border: 2px solid var(--rail);
+}
+.list::-webkit-scrollbar-thumb:hover { background: var(--edge); }
+
+.row {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin: 7px 14px;
+    padding: 14px 16px 13px 18px;
+    border-radius: var(--r);
+    background: var(--raise);
+    border: 1px solid transparent;
+    transition: background 130ms ease, border-color 130ms ease;
+}
+.row:hover { background: var(--lift); border-color: var(--edge); }
+
+/* The zone's own shell colour, as a spine. Set inline from JS. */
+.dot {
+    position: absolute;
+    left: 0; top: 12px; bottom: 12px;
+    width: 4px;
+    border-radius: 0 3px 3px 0;
+}
+
+.row-main { display: flex; align-items: flex-start; gap: 12px; }
+.row-main > div { flex: 1; min-width: 0; }
+
+.row-name {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* State chips. This is the bit that makes the list scannable. */
+.row-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 7px;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    border-radius: 20px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.chip.size {
+    color: var(--dim);
+    background: rgba(125, 157, 176, 0.09);
+    border-color: rgba(125, 157, 176, 0.2);
+    font-variant-numeric: tabular-nums;
+}
+.chip.dome    { color: var(--dome);    background: var(--dome-d);   border-color: rgba(56, 208, 255, 0.35); }
+.chip.walls   { color: var(--walls);   background: var(--walls-d);  border-color: rgba(255, 176, 58, 0.35); }
+.chip.blocks  { color: var(--block);   background: var(--block-d);  border-color: rgba(255, 90, 72, 0.35); }
+.chip.pass    { color: var(--signal);  background: var(--signal-d); border-color: rgba(44, 232, 132, 0.3); }
+.chip.hidden  { color: var(--ghosted); background: var(--ghost-d);  border-color: rgba(139, 123, 216, 0.35); }
+.chip.tag     { color: var(--walls);   background: transparent;     border-color: rgba(255, 176, 58, 0.4); }
+
+.row-acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    opacity: 0.6;
+    transition: opacity 120ms ease;
+}
+.row:hover .row-acts { opacity: 1; }
+
+.row-acts button {
+    padding: 6px 12px;
+    font-size: 0.8125rem;
+    color: var(--dim);
+    border: 1px solid var(--edge);
+    border-radius: var(--r-sm);
+    transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+.row-acts button:hover {
+    color: var(--ink);
+    background: var(--signal);
+    border-color: var(--signal);
+}
+.row-acts .danger:hover {
+    color: #fff;
+    background: var(--block);
+    border-color: var(--block);
+}
+
+.empty {
+    padding: 32px 24px;
+    font-size: 0.875rem;
+    line-height: 1.65;
+    color: var(--dim);
+}
+.empty p + p { margin-top: 8px; color: var(--faint); }
+
+
+/* ============================================================
+   FORM
+   ============================================================ */
+
+#form {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: var(--rail-w);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 22px 24px 24px;
+    overflow-y: auto;
+    background: rgba(10, 23, 32, 0.97);
+    border-right: 1px solid var(--edge);
+    box-shadow: 24px 0 60px rgba(0, 0, 0, 0.45);
+}
+
+.form-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--edge);
+}
+.form-head h2 { font-size: 1.1875rem; font-weight: 650; letter-spacing: -0.01em; }
+
+.field { display: block; }
+.field span {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    color: var(--faint);
+}
+.field input {
+    width: 100%;
+    padding: 11px 13px;
+    font: inherit;
+    font-size: 0.9375rem;
+    color: var(--text);
+    background: var(--ink);
+    border: 1px solid var(--edge);
+    border-radius: var(--r-sm);
+    transition: border-color 120ms ease;
+}
+.field input:focus { border-color: var(--signal); }
+.field input::placeholder { color: var(--faint); }
+
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.split#f-sphere-row { grid-template-columns: 1fr; }
+
+.toggle {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    width: 100%;
+    padding: 14px 15px;
+    text-align: left;
+    border-radius: var(--r);
+    background: var(--raise);
+    border: 1px solid var(--edge);
+    transition: border-color 130ms ease, background 130ms ease;
+}
+.toggle[data-on="true"]  { border-color: rgba(255, 90, 72, 0.5);  background: var(--block-d); }
+.toggle[data-on="false"] { border-color: rgba(44, 232, 132, 0.4); background: var(--signal-d); }
+
+.pip {
+    width: 12px; height: 12px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    transition: background 130ms ease, box-shadow 130ms ease;
+}
+.toggle[data-on="true"]  .pip { background: var(--block);  box-shadow: 0 0 0 4px rgba(255, 90, 72, 0.18); }
+.toggle[data-on="false"] .pip { background: var(--signal); box-shadow: 0 0 0 4px rgba(44, 232, 132, 0.16); }
+
+.toggle-copy strong { display: block; font-size: 0.9375rem; font-weight: 600; }
+.toggle-copy em {
+    display: block;
+    margin-top: 3px;
+    font-size: 0.8125rem;
+    font-style: normal;
+    color: var(--dim);
+}
+
+.swatches { display: flex; flex-wrap: wrap; gap: 9px; }
+.swatch {
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.swatch:hover { transform: scale(1.14); }
+.swatch[data-on="true"] {
+    border-color: var(--text);
+    box-shadow: 0 0 0 3px rgba(223, 238, 245, 0.16);
+}
+
+.form-actions { display: flex; gap: 10px; margin-top: auto; padding-top: 8px; }
+
+.ghost {
+    padding: 11px 16px;
+    font-size: 0.875rem;
+    color: var(--dim);
+    border: 1px solid var(--edge);
+    border-radius: var(--r-sm);
+    transition: color 120ms ease, border-color 120ms ease;
+}
+.ghost:hover { color: var(--text); border-color: var(--dim); }
+
+.primary {
+    flex: 1;
+    padding: 11px 16px;
+    font-size: 0.875rem;
+    font-weight: 650;
+    color: var(--ink);
+    background: var(--signal);
+    border-radius: var(--r-sm);
+    transition: filter 120ms ease;
+}
+.primary:hover { filter: brightness(1.12); }
+
+
+/* ============================================================
+   LIVE READOUT
+   ============================================================ */
+
+#readout {
+    position: fixed;
+    left: 50%; bottom: 92px;
+    transform: translateX(-50%);
+    text-align: center;
+    pointer-events: none;
+}
+
+.metric { display: flex; align-items: baseline; justify-content: center; gap: 4px; }
+
+#metric-value {
+    font-size: 4rem;
+    font-weight: 250;
+    line-height: 1;
+    letter-spacing: -0.035em;
+    color: var(--signal);
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 34px rgba(44, 232, 132, 0.45);
+}
+#metric-unit { font-size: 1.375rem; font-weight: 300; color: var(--signal); opacity: 0.65; }
+
+#metric-label {
+    margin-top: 5px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.19em;
+    color: var(--dim);
+}
+
+
+/* ============================================================
+   KEYSTRIP
+   ============================================================ */
+
+#keys {
+    position: fixed;
+    left: 50%; bottom: 26px;
+    transform: translateX(-50%);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px;
+    max-width: 88vw;
+    padding: 9px 12px;
+    border-radius: 11px;
+    background: rgba(6, 15, 22, 0.9);
+    border: 1px solid var(--edge);
+    pointer-events: none;
+}
+
+.k {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 10px;
+    font-size: 0.8125rem;
+    color: var(--dim);
+    border-radius: var(--r-sm);
+}
+
+.k b {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--dome);
+    padding: 3px 7px;
+    background: var(--dome-d);
+    border: 1px solid rgba(56, 208, 255, 0.3);
+    border-radius: 4px;
+}
+.k i { font-style: normal; color: var(--text); font-variant-numeric: tabular-nums; }
+
+.k.accept b {
+    color: var(--signal);
+    background: var(--signal-d);
+    border-color: rgba(44, 232, 132, 0.4);
+}
+
+
+/* ============================================================
+   BOUNDARY WARNING
+   ============================================================ */
+
+#warning {
+    position: fixed;
+    left: 50%; top: 13%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 22px 14px 18px;
+    border-radius: var(--r);
+    background: rgba(63, 20, 16, 0.94);
+    border: 1px solid rgba(255, 90, 72, 0.5);
+    box-shadow: 0 12px 44px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    animation: warnIn 200ms ease;
+}
+@keyframes warnIn {
+    from { opacity: 0; transform: translate(-50%, -9px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.warn-bar {
+    width: 3px;
+    align-self: stretch;
+    border-radius: 2px;
+    background: var(--block);
+}
+#warn-title { display: block; font-size: 0.9375rem; font-weight: 650; color: #ffd9d3; }
+#warn-text  {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.8125rem;
+    font-style: normal;
+    color: rgba(255, 217, 211, 0.7);
+}
+
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+
+#toast {
+    position: fixed;
+    left: 50%; bottom: 96px;
+    transform: translateX(-50%);
+    padding: 11px 20px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 22px;
+    background: rgba(6, 15, 22, 0.95);
+    border: 1px solid var(--edge);
+    pointer-events: none;
+    animation: warnIn 180ms ease;
+}
+#toast[data-ok="true"]  { color: var(--signal); border-color: rgba(44, 232, 132, 0.45); }
+#toast[data-ok="false"] { color: var(--block);  border-color: rgba(255, 90, 72, 0.45); }
+
+
+/* ============================================================
+   TAGS
+   A tag decides which script picks a zone up, so it is shown
+   before saving rather than applied behind your back.
+   ============================================================ */
+
+.tagfield span {
+    display: block;
+    margin-bottom: 7px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    color: var(--faint);
+}
+
+.taglist { display: flex; flex-wrap: wrap; gap: 6px; }
+.taglist:not(:empty) { margin-bottom: 9px; }
+
+.taglist button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 9px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--walls);
+    background: var(--walls-d);
+    border: 1px solid rgba(255, 176, 58, 0.4);
+    border-radius: 20px;
+    transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+.taglist button::after { content: "\00d7"; font-size: 0.9375rem; line-height: 1; opacity: 0.7; }
+.taglist button:hover {
+    color: #fff;
+    background: var(--block);
+    border-color: var(--block);
+}
+
+#f-tagadd {
+    width: 100%;
+    padding: 9px 12px;
+    font: inherit;
+    font-size: 0.875rem;
+    color: var(--text);
+    background: var(--ink);
+    border: 1px solid var(--edge);
+    border-radius: var(--r-sm);
+    transition: border-color 120ms ease;
+}
+#f-tagadd:focus { border-color: var(--walls); }
+#f-tagadd::placeholder { color: var(--faint); }
+
+/* Zone id, so the number the console commands want is never a hunt */
+.zid {
+    display: inline-block;
+    margin-right: 7px;
+    padding: 2px 6px;
+    font-family: var(--mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--dome);
+    background: var(--dome-d);
+    border: 1px solid rgba(56, 208, 255, 0.3);
+    border-radius: 4px;
+    vertical-align: 1px;
+}

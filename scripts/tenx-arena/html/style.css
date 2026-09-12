@@ -1,0 +1,4223 @@
+
+/* ── nothing is selectable ─────────────────────────────────
+   Dragging in a game overlay highlights half the interface in blue and
+   there is nothing you would ever want to copy out of it. Inputs are the
+   exception, obviously -- you have to be able to select what you typed. */
+
+* {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input, textarea, [contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* And no drag ghost on images. */
+img { -webkit-user-drag: none; user-drag: none; }
+
+/* Focus rings only for keyboard users, not on every click. */
+:focus:not(:focus-visible) { outline: none; }
+
+/* ============================================================
+   NAIJA 2046 · PVP
+
+   Reskinned against a slate-blue esports dashboard that could have
+   belonged to any server. This keeps NAIJA's own palette -- obsidian,
+   gold, emerald held back for live state -- and modernises the
+   execution instead: larger radii, tonal separation rather than a
+   border on everything, layered translucency, depth from inner
+   highlights rather than heavy drop shadows.
+
+   SIGNATURE: the chamfer. Primary cards carry soft radii on three
+   corners and one clipped corner with a gold hairline across it.
+   It is the zone boundary abstracted -- which is literally what this
+   script draws -- and it is angular where the reference is glossy.
+   ============================================================ */
+
+:root {
+  --ink:       #060907;
+  --panel:     #0C120E;
+  --raised:    #131B16;
+  --raised-hi: #1B241E;
+
+  --line:      rgba(220,228,222,.07);
+  --line-hi:   rgba(220,228,222,.13);
+
+  --chrome-hi: #DCE4DE;
+  --chrome-mid:#9AA69E;
+  --chrome-lo: #5C6862;
+
+  --gold:      #C9A227;
+  --gold-hot:  #F2D06B;
+  --gold-dim:  #7A5F14;
+  --emerald:   #16E45F;
+  --emerald-dim:#0E9E42;
+  --danger:    #E4483C;
+
+  --bone:      #E8EFE9;
+  --ash:       #7C8A81;
+
+  --obsidian:  #060907;
+  --gunmetal:  #0C120E;
+  --steel:     #131B16;
+  --steel-hi:  #1B241E;
+
+  --rail-w:    228px;
+  --r-lg:      18px;
+  --r-md:      13px;
+  --r-sm:      9px;
+
+  --ease:      cubic-bezier(.22,.61,.36,1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: transparent;
+  font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  color: var(--bone);
+  -webkit-font-smoothing: antialiased;
+}
+
+.hidden { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+
+}
+
+#root { position: fixed; inset: 0; display: grid; place-items: center; }
+
+.scrim {
+  position: absolute; inset: 0;
+  /* No backdrop-filter: FiveM CEF renders it as a solid black layer
+     rather than a blur, hiding the game behind the panel entirely. */
+  background: rgba(3,5,4,.62);
+}
+
+.watermark {
+  position: absolute;
+  right: -6%; bottom: -12%;
+  width: 62%;
+  max-width: 620px;
+  height: auto;
+  opacity: .05;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  filter: grayscale(.35);
+}
+
+.console {
+  position: relative;
+  width: min(1180px, 94vw);
+  height: min(760px, 92vh);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  background:
+    radial-gradient(120% 90% at 12% 0%, rgba(201,162,39,.07), transparent 55%),
+    linear-gradient(180deg, var(--raised) 0%, var(--panel) 30%, var(--ink) 100%);
+  box-shadow:
+    0 0 0 1px rgba(201,162,39,.20),
+    0 50px 120px -30px rgba(0,0,0,.92),
+    inset 0 1px 0 rgba(220,228,222,.09);
+  animation: rise .34s var(--ease) both;
+}
+
+.bar {
+  position: relative; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 26px 30px 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mark-season {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; font-weight: 600;
+  letter-spacing: .34em; text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 7px;
+}
+
+.mark-title {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 34px; font-weight: 700;
+  letter-spacing: -.005em; line-height: 1;
+  color: var(--bone);
+}
+
+.bar-right { display: flex; align-items: center; gap: 12px; }
+
+.icon-btn {
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  background: var(--raised);
+  border: 1px solid var(--line-hi);
+  border-radius: 50%;
+  color: var(--chrome-mid);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .18s var(--ease);
+}
+
+.icon-btn:hover { background: var(--raised-hi); color: var(--bone); border-color: rgba(201,162,39,.4); }
+
+.icon-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.body {
+  position: relative; z-index: 2;
+  flex: 1; display: flex;
+  min-height: 0;   /* lets .stage scroll instead of stretching the console */
+  overflow: hidden;
+}
+
+.rail {
+  width: var(--rail-w); flex-shrink: 0;
+  padding: 18px 14px;
+  display: flex; flex-direction: column; gap: 4px;
+  border-right: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(6,9,7,.5), transparent 40%);
+}
+
+.rail-item {
+  position: relative;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 12px 15px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  text-align: left;
+  cursor: pointer;
+  transition: all .18s var(--ease);
+}
+
+.rail-item:hover { background: rgba(220,228,222,.045); }
+
+.rail-item:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.rail-label {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 15px; font-weight: 600;
+  color: var(--chrome-mid);
+  transition: color .18s var(--ease);
+}
+
+.rail-meta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .1em;
+  color: var(--chrome-lo);
+  transition: color .18s var(--ease);
+}
+
+.rail-item:hover .rail-label { color: var(--bone); }
+
+.rail-item.is-active {
+  background: linear-gradient(180deg, var(--raised-hi), var(--raised));
+  border-color: var(--line-hi);
+  box-shadow: inset 0 1px 0 rgba(220,228,222,.07);
+}
+
+.rail-item.is-active .rail-label { color: var(--bone); }
+
+.rail-item.is-active .rail-meta { color: var(--gold); }
+
+.rail-item.is-active::before {
+  content: '';
+  position: absolute; left: 0; top: 50%;
+  width: 3px; height: 22px;
+  transform: translateY(-50%);
+  background: linear-gradient(180deg, var(--gold-hot), var(--gold-dim));
+  border-radius: 0 3px 3px 0;
+}
+
+.stage { flex: 1; min-width: 0; overflow-y: auto; padding: 26px 30px 30px; }
+
+.stage::-webkit-scrollbar { width: 9px; }
+
+.stage::-webkit-scrollbar-track { background: transparent; }
+
+.stage::-webkit-scrollbar-thumb {
+  background: rgba(220,228,222,.11);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+.stage::-webkit-scrollbar-thumb:hover { background: rgba(201,162,39,.4); background-clip: content-box; }
+
+.panel { display: none; animation: fade .26s var(--ease) both; }
+
+.panel.is-active { display: block; }
+
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.panel-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding-bottom: 12px; margin-bottom: 18px;
+  border-bottom: 1px solid rgba(201,162,39,.2);
+}
+
+.panel-head h2 {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 19px; font-weight: 600; letter-spacing: .03em;
+  color: var(--bone);
+}
+
+.tally {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--gold);
+}
+
+/* ── round: dial + controls ────────────────────────────── */
+
+.round-grid {
+  display: grid;
+  grid-template-columns: 288px 1fr;
+  gap: 30px;
+  align-items: start;
+}
+
+.dial { position: relative; display: grid; place-items: center; }
+
+.dial-svg { width: 288px; height: 288px; display: block; }
+
+.dial-track { fill: none; stroke: rgba(220,228,222,.07); stroke-width: 1; }
+
+.dial-outer {
+  fill: none; stroke: url(#chromeStroke); stroke-width: 1.5;
+  opacity: .8;
+}
+
+.dial-zone {
+  fill: url(#zoneFill);
+  transition: r .5s linear;
+}
+
+.dial-edge {
+  fill: none; stroke: var(--emerald); stroke-width: 2;
+  filter: drop-shadow(0 0 6px rgba(22,228,95,.55));
+  transition: r .5s linear;
+}
+
+.dial-pin { fill: var(--gold); }
+
+.dial-tick { stroke: rgba(201,162,39,.4); stroke-width: 1; }
+
+.dial-idle .dial-edge { stroke: rgba(124,138,129,.35); filter: none; }
+
+.dial-idle .dial-zone { fill: rgba(124,138,129,.05); }
+
+.dial-readout {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  text-align: center; pointer-events: none;
+}
+
+.dial-value {
+  display: block;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 46px; font-weight: 700; line-height: .95;
+  letter-spacing: -.01em;
+  color: var(--bone);
+  text-shadow: 0 2px 14px rgba(0,0,0,.7);
+}
+
+.dial-unit {
+  display: block; margin-top: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .28em; text-transform: uppercase;
+  color: var(--chrome-lo);
+}
+
+.dial-sub {
+  display: block; margin-top: 11px;
+  font-size: 11.5px; letter-spacing: .04em;
+  color: var(--ash); max-width: 150px;
+}
+
+/* ── fields ────────────────────────────────────────────── */
+
+.controls { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+.field-label {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; font-weight: 500;
+  letter-spacing: .18em; text-transform: uppercase;
+  color: var(--chrome-lo);
+  margin-bottom: 10px;
+}
+
+.field-hint { color: var(--gold); letter-spacing: .08em; text-transform: none; font-size: 11px; }
+
+.field-row { display: flex; align-items: center; gap: 14px; }
+
+input[type=range] {
+  flex: 1; height: 2px; -webkit-appearance: none; appearance: none;
+  background: linear-gradient(90deg, var(--emerald-dim), rgba(220,228,222,.16));
+  outline: none; cursor: pointer;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 13px; height: 13px; border-radius: 50%;
+  background: linear-gradient(180deg, var(--chrome-hi), var(--chrome-lo));
+  border: 1px solid rgba(0,0,0,.6);
+  box-shadow: 0 0 0 3px rgba(22,228,95,.16);
+  cursor: pointer;
+}
+
+input[type=range]:focus-visible { outline: 2px solid var(--gold); outline-offset: 6px; }
+
+input[type=number] {
+  width: 92px; padding: 9px 11px;
+  background: rgba(8,12,9,.8);
+  border: 1px solid rgba(220,228,222,.16);
+  border-radius: var(--r-sm);
+  color: var(--bone);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 14px; font-weight: 500;
+  text-align: center;
+}
+
+input[type=number]:focus { outline: none; border-color: var(--emerald); box-shadow: 0 0 0 3px rgba(22,228,95,.12); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.chip {
+  padding: 8px 15px;
+  background: rgba(220,228,222,.04);
+  border: 1px solid rgba(220,228,222,.14);
+  border-radius: var(--r-sm);
+  color: var(--ash);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12.5px; font-weight: 500;
+  cursor: pointer;
+  transition: all .2s var(--ease);
+}
+
+.chip:hover { color: var(--bone); border-color: rgba(220,228,222,.3); }
+
+.chip.is-on {
+  color: var(--emerald);
+  border-color: rgba(22,228,95,.42);
+  background: rgba(22,228,95,.09);
+}
+
+/* ── lobby readout ─────────────────────────────────────── */
+
+.lobby {
+  display: flex; align-items: center; gap: 16px;
+  padding: 15px 18px;
+  background: linear-gradient(100deg, rgba(201,162,39,.07), rgba(8,12,9,0) 70%);
+  border: 1px solid rgba(201,162,39,.22);
+  border-radius: var(--r-sm);
+}
+
+.lobby-count {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 34px; font-weight: 700; line-height: 1;
+  color: var(--gold);
+  min-width: 46px; text-align: center;
+}
+
+.lobby-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.lobby-text strong {
+  font-size: 13px; font-weight: 600; color: var(--bone); letter-spacing: .01em;
+}
+
+.lobby-text span {
+  font-size: 11.5px; color: var(--ash);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── buttons ───────────────────────────────────────────── */
+
+.actions { display: flex; gap: 12px; }
+
+.actions-inline { margin-bottom: 16px; flex-wrap: wrap; }
+
+.btn {
+  flex: 1;
+  padding: 14px 20px;
+  border-radius: var(--r-sm);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 14px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all .2s var(--ease);
+}
+
+.btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.btn-primary {
+  color: #04150A;
+  background: linear-gradient(180deg, #3AF37C 0%, var(--emerald) 42%, var(--emerald-dim) 100%);
+  border-color: rgba(22,228,95,.6);
+  box-shadow: 0 6px 20px -8px rgba(22,228,95,.6), inset 0 1px 0 rgba(255,255,255,.35);
+}
+
+.btn-primary:hover:not(:disabled) { filter: brightness(1.1); box-shadow: 0 8px 26px -8px rgba(22,228,95,.8), inset 0 1px 0 rgba(255,255,255,.45); }
+
+.btn-danger {
+  color: #FFEDEB;
+  background: linear-gradient(180deg, #F0655A 0%, var(--danger) 45%, #A32B22 100%);
+  border-color: rgba(228,72,60,.6);
+  box-shadow: 0 6px 20px -8px rgba(228,72,60,.55), inset 0 1px 0 rgba(255,255,255,.25);
+}
+
+.btn-danger:hover:not(:disabled) { filter: brightness(1.1); }
+
+.btn-ghost {
+  flex: 0 1 auto;
+  padding: 10px 16px;
+  font-size: 12px;
+  color: var(--chrome-mid);
+  background: rgba(220,228,222,.04);
+  border-color: rgba(220,228,222,.16);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  color: var(--bone);
+  border-color: rgba(201,162,39,.5);
+  background: rgba(201,162,39,.1);
+}
+
+/* ── live + preview blocks ─────────────────────────────── */
+
+.live-actions, .preview {
+  padding: 15px 18px;
+  border: 1px solid rgba(220,228,222,.1);
+  border-radius: var(--r-sm);
+  background: rgba(8,12,9,.45);
+}
+
+.live-actions-label, .preview-label {
+  display: block; margin-bottom: 11px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--gold);
+}
+
+.live-actions-row { display: flex; flex-wrap: wrap; gap: 9px; }
+
+.preview-copy { font-size: 12px; color: var(--ash); margin-bottom: 12px; line-height: 1.55; }
+
+.preview-row { display: flex; gap: 9px; }
+
+/* ── tables ────────────────────────────────────────────── */
+
+.table { display: flex; flex-direction: column; gap: 1px; }
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 116px auto;
+  align-items: center; gap: 14px;
+  padding: 12px 16px;
+  background: rgba(220,228,222,.035);
+  border-left: 2px solid transparent;
+  transition: background .18s var(--ease);
+}
+
+.row:hover { background: rgba(220,228,222,.065); }
+
+.row-alive { border-left-color: var(--emerald); }
+
+.row-out   { border-left-color: rgba(124,138,129,.5); }
+
+.row-owed  { border-left-color: var(--gold); }
+
+.row-name { font-size: 13.5px; font-weight: 500; color: var(--bone); }
+
+.row-sub {
+  display: block; margin-top: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; color: var(--ash);
+}
+
+.row-state {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+}
+
+.state-alive { color: var(--emerald); }
+
+.state-out   { color: var(--ash); }
+
+.state-owed  { color: var(--gold); }
+
+.row-actions { display: flex; gap: 7px; }
+
+.mini {
+  padding: 6px 11px;
+  background: rgba(220,228,222,.05);
+  border: 1px solid rgba(220,228,222,.16);
+  border-radius: var(--r-sm);
+  color: var(--chrome-mid);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11px; cursor: pointer;
+  transition: all .18s var(--ease);
+}
+
+.mini:hover { color: var(--bone); border-color: rgba(201,162,39,.5); background: rgba(201,162,39,.1); }
+
+.mini-danger:hover { border-color: rgba(228,72,60,.55); background: rgba(228,72,60,.14); color: #FFD9D5; }
+
+.empty {
+  padding: 34px 20px; text-align: center;
+  font-size: 13px; color: var(--ash);
+  border: 1px dashed rgba(220,228,222,.12);
+}
+
+/* ── stats ─────────────────────────────────────────────── */
+
+.stat-row { display: flex; gap: 14px; margin-bottom: 20px; }
+
+.stat {
+  flex: 1; padding: 16px 18px;
+  background: rgba(220,228,222,.035);
+  border: 1px solid rgba(220,228,222,.1);
+  border-radius: var(--r-sm);
+}
+
+.stat-value {
+  display: block;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 28px; font-weight: 700; line-height: 1;
+  color: var(--bone);
+}
+
+.stat-label {
+  display: block; margin-top: 6px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ash);
+}
+
+.note { font-size: 11.5px; color: var(--ash); line-height: 1.6; }
+
+.note-top { margin-bottom: 16px; }
+
+/* ── footer ────────────────────────────────────────────── */
+
+.foot {
+  position: relative; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 24px;
+  border-top: 1px solid rgba(201,162,39,.2);
+  background: rgba(8,12,9,.6);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; letter-spacing: .1em;
+  color: var(--ash);
+}
+
+.foot-brand { color: rgba(201,162,39,.55); letter-spacing: .24em; text-transform: uppercase; }
+
+.foot.is-flash { color: var(--emerald); }
+
+.foot.is-error { color: var(--danger); }
+
+/* ── responsive ────────────────────────────────────────── */
+
+@media (max-width: 980px) {
+  .round-grid { grid-template-columns: 1fr; }
+
+  .dial { justify-self: center; }
+
+  .rail { width: 152px; }
+
+  .watermark { display: none; }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+
+}
+
+
+
+.rail-wide { width: 250px; padding: 0; display: flex; flex-direction: column; }
+
+.rail-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px 13px;
+  border-bottom: 1px solid rgba(201,162,39,.2);
+}
+
+.rail-head span {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--gold);
+}
+
+.arena-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+
+.arena-list::-webkit-scrollbar { width: 6px; }
+
+.arena-list::-webkit-scrollbar-thumb { background: rgba(201,162,39,.28); }
+
+.arena-item {
+  position: relative;
+  display: block; width: 100%;
+  padding: 12px 18px 12px 20px;
+  text-align: left; cursor: pointer;
+  background: none; border: 0;
+  border-left: 2px solid transparent;
+  transition: all .2s var(--ease);
+}
+
+.arena-item:hover { background: rgba(220,228,222,.04); }
+
+.arena-item.is-active {
+  border-left-color: var(--gold);
+  background: linear-gradient(90deg, rgba(201,162,39,.11), transparent 72%);
+}
+
+.arena-item-name {
+  display: block;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 14px; font-weight: 600; letter-spacing: .02em;
+  color: var(--chrome-mid);
+}
+
+.arena-item.is-active .arena-item-name { color: var(--bone); }
+
+.arena-item-meta {
+  display: block; margin-top: 3px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .05em;
+  color: var(--ash);
+}
+
+.arena-item.is-off .arena-item-name { color: var(--chrome-lo); text-decoration: line-through; }
+
+.arena-item-dot {
+  position: absolute; right: 16px; top: 50%;
+  width: 6px; height: 6px; border-radius: 50%;
+  transform: translateY(-50%);
+  background: var(--chrome-lo);
+}
+
+.arena-item.is-live .arena-item-dot {
+  background: var(--emerald); box-shadow: 0 0 8px var(--emerald);
+}
+
+.arena-item.is-nobounds .arena-item-dot { background: var(--danger); }
+
+/* ── empty state ───────────────────────────────────────── */
+
+.hero-empty { max-width: 480px; padding: 40px 0; }
+
+.hero-empty h2 {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 27px; font-weight: 700; letter-spacing: .02em;
+  color: var(--bone); margin-bottom: 14px;
+}
+
+.hero-empty p { font-size: 13.5px; line-height: 1.7; color: var(--ash); margin-bottom: 14px; }
+
+.hero-note {
+  padding: 14px 16px;
+  background: rgba(201,162,39,.06);
+  border-left: 2px solid rgba(201,162,39,.4);
+  font-size: 12.5px !important;
+}
+
+.hero-empty .btn { margin-top: 8px; flex: 0 0 auto; padding: 14px 26px; }
+
+/* ── edit cards ────────────────────────────────────────── */
+
+.edit-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: 14px;
+}
+
+.card {
+  padding: 16px 18px 18px;
+  background: rgba(220,228,222,.035);
+  border: 1px solid rgba(220,228,222,.1);
+  border-radius: var(--r-sm);
+}
+
+.card-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 9px;
+}
+
+.card-title {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 15px; font-weight: 600; letter-spacing: .03em;
+  color: var(--bone);
+}
+
+.card-state {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--ash);
+}
+
+.card-state.is-ok { color: var(--emerald); }
+
+.card-state.is-bad { color: var(--danger); }
+
+.card-note { font-size: 12px; line-height: 1.6; color: var(--ash); margin-bottom: 12px; }
+
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+.btn-row .btn { flex: 0 0 auto; }
+
+/* ── teams ─────────────────────────────────────────────── */
+
+.team-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.team {
+  padding: 13px 14px;
+  background: rgba(8,12,9,.5);
+  border: 1px solid rgba(220,228,222,.1);
+  border-left-width: 2px;
+  border-radius: var(--r-sm);
+}
+
+.team-a { border-left-color: #3E9BE4; }
+
+.team-b { border-left-color: #E4823E; }
+
+.team-label {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--ash);
+}
+
+.team-count {
+  display: block; margin: 4px 0 10px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 26px; font-weight: 700; line-height: 1;
+  color: var(--bone);
+}
+
+.team-a .team-count { color: #7CC0F0; }
+
+.team-b .team-count { color: #F0AE7C; }
+
+.team-btns { display: flex; gap: 6px; }
+
+/* ── minimised bar ─────────────────────────────────────── */
+
+.minibar {
+  position: fixed; top: 22px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, rgba(28,38,32,.96), rgba(9,13,10,.97));
+  border: 1px solid rgba(201,162,39,.42);
+  border-radius: var(--r-sm);
+  box-shadow: 0 12px 30px -10px rgba(0,0,0,.85);
+  font-family: 'IBM Plex Sans', sans-serif;
+  z-index: 20;
+}
+
+.minibar.hidden { display: none; }
+
+.minibar-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--gold); box-shadow: 0 0 9px var(--gold);
+  animation: beat 1.6s ease-in-out infinite;
+}
+
+.minibar-text { font-size: 12.5px; color: var(--bone); }
+
+.minibar-btn {
+  padding: 6px 12px;
+  background: rgba(201,162,39,.14);
+  border: 1px solid rgba(201,162,39,.4);
+  border-radius: var(--r-sm);
+  color: var(--gold);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11.5px; cursor: pointer;
+  transition: all .18s var(--ease);
+}
+
+.minibar-btn:hover { background: rgba(201,162,39,.26); color: var(--bone); }
+
+
+
+.sub-head {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 14px; font-weight: 600; letter-spacing: .04em;
+  color: var(--chrome-mid);
+  margin: 24px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(220,228,222,.1);
+}
+
+.mini-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+.mini-field > span {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--chrome-lo);
+}
+
+.mini-field input[type=text], .mini-field input[type=number] {
+  width: 100%; padding: 8px 10px;
+  background: rgba(8,12,9,.8);
+  border: 1px solid rgba(220,228,222,.14);
+  border-radius: var(--r-sm);
+  color: var(--bone);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12.5px;
+}
+
+.mini-field input:focus { outline: none; border-color: var(--emerald); box-shadow: 0 0 0 3px rgba(22,228,95,.1); }
+
+.mini-field.check {
+  flex-direction: row; align-items: center; gap: 9px;
+  padding: 9px 11px; margin-bottom: 12px;
+  background: rgba(8,12,9,.55);
+  border: 1px solid rgba(220,228,222,.1);
+  border-radius: var(--r-sm);
+}
+
+.mini-field.check > span {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12px; letter-spacing: 0; text-transform: none; color: var(--bone);
+}
+
+.mini-field.check input[type=checkbox] {
+  appearance: none; -webkit-appearance: none;
+  width: 15px; height: 15px; flex-shrink: 0;
+  background: rgba(8,12,9,.9);
+  border: 1px solid rgba(220,228,222,.28);
+  border-radius: var(--r-sm); cursor: pointer;
+  display: grid; place-content: center;
+}
+
+.mini-field.check input[type=checkbox]::after {
+  content: ''; width: 7px; height: 7px; transform: scale(0);
+  background: var(--emerald); transition: transform .16s var(--ease);
+}
+
+.mini-field.check input[type=checkbox]:checked { border-color: var(--emerald); }
+
+.mini-field.check input[type=checkbox]:checked::after { transform: scale(1); }
+
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+
+.itemlist { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+
+.item-row { display: grid; grid-template-columns: 1fr 84px 32px; gap: 8px; align-items: center; }
+
+.item-row input {
+  padding: 8px 10px;
+  background: rgba(8,12,9,.8);
+  border: 1px solid rgba(220,228,222,.14);
+  border-radius: var(--r-sm);
+  color: var(--bone);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12.5px; min-width: 0;
+}
+
+.item-row input:focus { outline: none; border-color: var(--emerald); }
+
+.row-del {
+  width: 32px; height: 33px;
+  background: rgba(228,72,60,.08);
+  border: 1px solid rgba(228,72,60,.24);
+  border-radius: var(--r-sm);
+  color: #E88178; cursor: pointer; font-size: 13px;
+}
+
+.row-del:hover { background: rgba(228,72,60,.2); color: #FFD9D5; }
+
+.row {
+  display: grid; grid-template-columns: 1fr auto auto;
+  align-items: center; gap: 14px;
+  padding: 11px 16px;
+  background: rgba(220,228,222,.035);
+  border-left: 2px solid var(--emerald);
+}
+
+.row-name { font-size: 13.5px; font-weight: 500; color: var(--bone); }
+
+.row-sub {
+  display: block; margin-top: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; color: var(--ash);
+}
+
+.mini {
+  padding: 6px 11px;
+  background: rgba(220,228,222,.05);
+  border: 1px solid rgba(220,228,222,.16);
+  border-radius: var(--r-sm);
+  color: var(--chrome-mid);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11px; cursor: pointer;
+  transition: all .18s var(--ease);
+}
+
+.mini:hover { color: var(--bone); border-color: rgba(201,162,39,.5); background: rgba(201,162,39,.1); }
+
+.mini-danger:hover { border-color: rgba(228,72,60,.55); background: rgba(228,72,60,.14); color: #FFD9D5; }
+
+.add-row { margin-bottom: 4px; }
+
+.empty {
+  padding: 28px 20px; text-align: center;
+  font-size: 13px; color: var(--ash);
+  border: 1px dashed rgba(220,228,222,.12);
+}
+
+.table { display: flex; flex-direction: column; gap: 1px; }
+
+/* ============================================================
+   PLAYER PANEL + IN-MATCH UI
+   ============================================================ */
+
+#pRoot { position: fixed; inset: 0; display: grid; place-items: center; }
+
+#pRoot.hidden { display: none; }
+
+.p-console { width: min(1000px, 92vw); height: min(700px, 90vh); }
+
+.p-record {
+  padding: 7px 14px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: .12em;
+  color: var(--gold);
+  border: 1px solid rgba(201,162,39,.32);
+  background: rgba(201,162,39,.07);
+  border-radius: var(--r-sm);
+}
+
+.ppanel { display: none; animation: fade .26s var(--ease) both; }
+
+.ppanel.is-active { display: block; }
+
+/* A panel is content inside the stage, never a layer of its own -- if one
+   ever escapes its container it stays clipped rather than drawing over the
+   game. */
+.ppanel { position: relative; }
+
+/* ── modes ─────────────────────────────────────────────── */
+
+.mode-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+
+.mode-card {
+  padding: 18px 14px; text-align: center; cursor: pointer;
+  background: linear-gradient(158deg, rgba(220,228,222,.045), rgba(220,228,222,.012) 42%), var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  transition: all .2s var(--ease);
+}
+
+.mode-card:hover {
+  border-color: var(--line-hi);
+  background: linear-gradient(158deg, rgba(220,228,222,.07), rgba(220,228,222,.02) 42%), var(--raised-hi);
+  transform: translateY(-1px);
+}
+
+.mode-card.is-on {
+  border-color: rgba(22,228,95,.45);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(22,228,95,.16), transparent 62%),
+    var(--raised-hi);
+  box-shadow: inset 0 1px 0 rgba(22,228,95,.2);
+}
+
+.mode-name {
+  display: block;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 20px; font-weight: 700; color: var(--bone);
+}
+
+.mode-card.is-on .mode-name { color: var(--emerald); }
+
+.mode-queued {
+  display: block; margin-top: 5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .1em; color: var(--ash);
+}
+
+/* ── weapons ───────────────────────────────────────────── */
+
+.wep-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+.wep-label {
+  display: block; margin-bottom: 9px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--chrome-lo);
+}
+
+.wep-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 7px; }
+
+.wep-card {
+  padding: 11px 7px; text-align: center; cursor: pointer;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  transition: all .18s var(--ease);
+}
+
+.wep-card:hover { border-color: var(--line-hi); background: var(--raised); }
+
+.wep-card.is-on {
+  border-color: rgba(201,162,39,.5);
+  background: linear-gradient(180deg, rgba(201,162,39,.14), rgba(201,162,39,.04));
+  box-shadow: inset 0 1px 0 rgba(242,208,107,.18);
+}
+
+.wep-card img { width: 100%; height: 34px; object-fit: contain; display: block; margin-bottom: 5px; }
+
+.wep-card span { font-size: 10.5px; color: var(--ash); }
+
+.wep-card.is-on span { color: var(--gold); }
+
+/* ── score ─────────────────────────────────────────────── */
+
+.score-grid { display: flex; gap: 9px; flex-wrap: wrap; }
+
+.score-card {
+  padding: 12px 22px; cursor: pointer;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 17px; font-weight: 700; color: var(--chrome-mid);
+  transition: all .18s var(--ease);
+}
+
+.score-card.is-on {
+  border-color: rgba(22,228,95,.45);
+  background: linear-gradient(180deg, rgba(22,228,95,.15), rgba(22,228,95,.04));
+  color: var(--emerald);
+}
+
+.p-actions { display: flex; gap: 10px; margin-top: 20px; }
+
+.p-actions .btn { flex: 0 0 auto; padding: 13px 26px; }
+
+/* ── party ─────────────────────────────────────────────── */
+
+.member-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 9px; }
+
+.member {
+  display: flex; align-items: center; gap: 11px;
+  padding: 12px 14px;
+  background: rgba(220,228,222,.04);
+  border: 1px solid rgba(220,228,222,.12);
+  border-left: 2px solid var(--chrome-lo);
+  border-radius: var(--r-sm);
+}
+
+.member.is-leader { border-left-color: var(--gold); }
+
+.member.is-dummy { border-left-color: rgba(124,138,129,.5); opacity: .7; }
+
+.member-av {
+  width: 32px; height: 32px; flex-shrink: 0;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: rgba(22,228,95,.14);
+  border: 1px solid rgba(22,228,95,.3);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 14px; font-weight: 700; color: var(--emerald);
+}
+
+.member.is-dummy .member-av { background: rgba(124,138,129,.14); border-color: rgba(124,138,129,.3); color: var(--ash); }
+
+.member-info { min-width: 0; flex: 1; }
+
+.member-name { display: block; font-size: 12.5px; color: var(--bone); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.member-role {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ash);
+}
+
+.code-row { display: flex; gap: 9px; align-items: stretch; }
+
+.code-row input {
+  flex: 0 0 130px; padding: 12px 14px;
+  background: rgba(8,12,9,.8);
+  border: 1px solid rgba(220,228,222,.16);
+  border-radius: var(--r-sm);
+  color: var(--bone);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 20px; font-weight: 700;
+  letter-spacing: .3em; text-align: center; text-transform: uppercase;
+}
+
+.code-row input:focus { outline: none; border-color: var(--emerald); }
+
+.code-row .btn { flex: 0 0 auto; padding: 12px 22px; }
+
+.test-box {
+  margin-top: 24px; padding: 16px 18px;
+  background: rgba(201,162,39,.05);
+  border: 1px dashed rgba(201,162,39,.35);
+  border-radius: var(--r-sm);
+}
+
+.test-label {
+  display: block; margin-bottom: 7px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--gold);
+}
+
+.test-box .p-actions { margin-top: 12px; }
+
+.test-box .btn { padding: 9px 15px; font-size: 11.5px; }
+
+/* ── ready check + map vote ────────────────────────────── */
+
+.modal-layer {
+  position: fixed; inset: 0; z-index: 30;
+  display: grid; place-items: center;
+  background: rgba(4,7,5,.7);
+}
+
+.modal-layer.hidden { display: none; }
+
+.ready-card, .vote-card {
+  padding: 30px 40px; text-align: center;
+  background: linear-gradient(180deg, rgba(30,40,34,.97), rgba(9,13,10,.98));
+  border: 1px solid rgba(201,162,39,.45);
+  border-radius: 3px;
+  box-shadow: 0 30px 70px -18px rgba(0,0,0,.9);
+  animation: rise .3s var(--ease) both;
+}
+
+/* ── voting for the arena ───────────────────────────────
+   Horizontal, because the options are alternatives to compare -- you want
+   them side by side, not stacked into a list you scroll.
+
+   The card sets an explicit width. It only had max-width before, and inside
+   a centred grid that meant it shrank to its content, which collapsed the
+   auto-fit columns to one and stacked everything vertically. */
+
+.vote-card {
+  width: min(980px, 92vw);
+  padding: 30px 34px 26px;
+  text-align: center;
+}
+
+.vote-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 20px; margin-bottom: 6px;
+}
+
+.vote-clock {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 26px; font-weight: 700;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.vote-grid {
+  display: grid;
+  grid-auto-flow: column;              /* side by side, always */
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 12px;
+  margin: 18px 0 14px;
+}
+
+/* Past five they get too narrow to read, so they wrap instead. */
+.vote-grid.is-many {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+}
+
+.vote-option {
+  position: relative;
+  cursor: pointer; overflow: hidden;
+  background: linear-gradient(158deg, rgba(220,228,222,.05), rgba(220,228,222,.014) 44%), var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  transition: all .2s var(--ease);
+}
+
+.vote-option:hover {
+  border-color: var(--line-hi);
+  transform: translateY(-3px);
+  box-shadow: 0 14px 28px -14px rgba(0,0,0,.75);
+}
+
+.vote-option.is-on {
+  border-color: rgba(22,228,95,.55);
+  box-shadow: inset 0 0 0 1px rgba(22,228,95,.25), 0 12px 26px -14px rgba(22,228,95,.4);
+}
+
+/* the one winning, so you can see it without counting */
+.vote-option.is-leading::after {
+  content: 'LEADING';
+  position: absolute; left: 10px; top: 10px;
+  padding: 3px 9px;
+  background: rgba(201,162,39,.9);
+  border-radius: 999px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px; font-weight: 600; letter-spacing: .14em;
+  color: #100C02;
+}
+
+.vote-thumb {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: linear-gradient(140deg, rgba(28,38,32,.9), rgba(9,13,10,.95));
+  display: grid; place-items: center;
+  overflow: hidden;
+}
+
+.vote-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.vote-thumb::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 50%, rgba(6,9,7,.85));
+}
+
+.vote-thumb .vote-fallback {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 40px; font-weight: 700; color: rgba(220,228,222,.14);
+}
+
+.vote-votes {
+  position: absolute; right: 9px; top: 9px; z-index: 1;
+  min-width: 28px; padding: 4px 9px;
+  background: rgba(6,9,7,.86);
+  border: 1px solid rgba(201,162,39,.45);
+  border-radius: 999px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 14px; font-weight: 700; color: var(--gold);
+}
+
+.vote-option.is-on .vote-votes { border-color: rgba(22,228,95,.6); color: var(--emerald); }
+
+/* a bar under each, so the split is readable at a glance */
+.vote-share {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 1;
+  height: 3px;
+  background: rgba(220,228,222,.1);
+}
+
+.vote-share i {
+  display: block; height: 100%; width: 0;
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+  transition: width .3s var(--ease);
+}
+
+.vote-option.is-on .vote-share i { background: linear-gradient(90deg, var(--emerald-dim), var(--emerald)); }
+
+.vote-name {
+  display: block; padding: 11px 12px 12px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 14px; font-weight: 600;
+  color: var(--bone);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.vote-option.is-on .vote-name { color: var(--emerald); }
+
+/* ── in-match ──────────────────────────────────────────── */
+
+#aHud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+
+#aHud.hidden { display: none; }
+
+.a-banner {
+  position: absolute; top: 0; left: 50%;
+  transform: translate(-50%,-100%);
+  min-width: 320px; opacity: 0;
+  transition: transform .5s cubic-bezier(.16,.9,.3,1), opacity .3s ease;
+}
+
+.a-banner.is-in { transform: translate(-50%,0); opacity: 1; }
+
+.a-banner-glow {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent, var(--gold)) 24%, var(--accent, var(--gold)) 76%, transparent);
+  box-shadow: 0 0 14px var(--accent, var(--gold));
+}
+
+.a-banner-inner {
+  padding: 12px 30px; text-align: center;
+  background: linear-gradient(180deg, rgba(28,38,32,.97), rgba(10,15,11,.96));
+  border: 1px solid rgba(201,162,39,.4); border-top: 0;
+  border-radius: 0 0 3px 3px;
+}
+
+.a-banner-eyebrow {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .3em; text-transform: uppercase;
+  color: var(--accent, var(--gold)); margin-bottom: 3px;
+}
+
+.a-banner-eyebrow:empty { display: none; }
+
+.a-banner-title {
+  display: block;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 24px; font-weight: 700; letter-spacing: .04em; color: var(--bone);
+}
+
+.a-banner-sub { display: block; margin-top: 2px; font-size: 11.5px; color: var(--ash); }
+
+.a-banner-sub:empty { display: none; }
+
+/* scoreboard: score, roster, mode, roster, score */
+.scoreboard {
+  position: absolute; top: 12px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 14px;
+  background: linear-gradient(180deg, rgba(20,28,23,.86), rgba(8,12,9,.9));
+  border: 1px solid rgba(201,162,39,.28);
+  border-radius: 4px;
+}
+
+.scoreboard.hidden { display: none; }
+
+.sb-score {
+  min-width: 42px; text-align: center;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 27px; font-weight: 700; line-height: 1;
+}
+
+.sb-score.team-a { color: #7CC0F0; text-shadow: 0 0 12px rgba(62,155,228,.4); }
+
+.sb-score.team-b { color: #F0AE7C; text-shadow: 0 0 12px rgba(228,130,62,.4); }
+
+.sb-roster { display: flex; gap: 4px; }
+
+.sb-slot {
+  width: 26px;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+
+.sb-av {
+  width: 24px; height: 24px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: rgba(220,228,222,.08);
+  border: 1px solid rgba(220,228,222,.2);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 11px; font-weight: 700; color: var(--chrome-mid);
+}
+
+.sb-slot.alive .sb-av { border-color: rgba(22,228,95,.5); color: var(--bone); }
+
+.sb-slot.dead { opacity: .35; }
+
+.sb-slot.dead .sb-av { border-color: rgba(228,72,60,.4); }
+
+.sb-slot.empty .sb-av { border-style: dashed; opacity: .35; }
+
+.sb-life { width: 100%; height: 2px; background: rgba(220,228,222,.14); }
+
+.sb-life i { display: block; height: 100%; width: 100%; background: var(--emerald); }
+
+.sb-slot.dead .sb-life i { width: 0; }
+
+.sb-mid { display: flex; flex-direction: column; align-items: center; padding: 0 8px; }
+
+.sb-mode {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 13px; font-weight: 700; letter-spacing: .06em; color: var(--bone);
+}
+
+.sb-target {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--ash);
+}
+
+/* hotbar */
+/* fixed, not absolute: this sits at the top level now rather than inside
+   #aHud, which was position:fixed and gave it its containing block. Same
+   place on screen, no longer dependent on a container that is hidden
+   outside a match.
+   z-index and pointer-events came from #aHud too, so they are restated. */
+.hotbar {
+  position: fixed; bottom: 26px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; gap: 7px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.hotbar.hidden { display: none; }
+
+.hb-slot {
+  position: relative;
+  width: 58px; height: 58px;
+  display: grid; place-items: center;
+  background: linear-gradient(180deg, rgba(20,28,23,.88), rgba(8,12,9,.92));
+  border: 1px solid rgba(220,228,222,.16);
+  border-radius: 4px;
+}
+
+.hb-slot.is-sel { border-color: rgba(22,228,95,.6); box-shadow: 0 0 14px -3px rgba(22,228,95,.5); }
+
+.hb-slot.is-empty { opacity: .32; }
+
+.hb-slot img { width: 42px; height: 30px; object-fit: contain; }
+
+.hb-key {
+  position: absolute; top: 3px; left: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; color: var(--gold);
+}
+
+.hb-qty {
+  position: absolute; bottom: 3px; right: 5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; color: var(--bone);
+}
+
+.hb-ammo {
+  position: absolute; bottom: 2px; left: 0; right: 0;
+  text-align: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px; color: var(--ash);
+}
+
+/* invite toast */
+.invite-toast {
+  position: fixed; right: 26px; bottom: 26px; z-index: 25;
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 18px;
+  background: linear-gradient(180deg, rgba(28,38,32,.97), rgba(9,13,10,.97));
+  border: 1px solid rgba(201,162,39,.45);
+  border-radius: var(--r-sm);
+  box-shadow: 0 16px 40px -12px rgba(0,0,0,.85);
+  animation: rise .3s var(--ease) both;
+}
+
+.invite-toast.hidden { display: none; }
+
+.invite-eyebrow {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .24em; text-transform: uppercase; color: var(--gold);
+}
+
+.invite-body strong { display: block; margin-top: 3px; font-size: 14px; color: var(--bone); }
+
+.invite-mode { font-size: 11px; color: var(--ash); }
+
+.invite-btns { display: flex; gap: 6px; }
+
+/* ── in-match: kill feed, respawn, protection, result ──── */
+
+.mfeed {
+  position: absolute; top: 76px; left: 24px;
+  display: flex; flex-direction: column; gap: 3px;
+  max-width: 300px;
+  transition: top .2s var(--ease);
+}
+
+.mfeed-line {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  background: rgba(8,12,9,.74);
+  border-left: 2px solid var(--chrome-lo);
+  border-radius: 4px;
+  font-size: 11.5px; white-space: nowrap;
+  animation: feedIn .24s cubic-bezier(.16,.9,.3,1) both;
+}
+
+.mfeed-line.team-a { border-left-color: #3E9BE4; }
+
+.mfeed-line.team-b { border-left-color: #E4823E; }
+
+.mfeed-line.is-tk { border-left-color: var(--gold); }
+
+.mfeed-line.is-out { animation: feedOut .28s ease forwards; }
+
+.mfeed-k { color: var(--bone); font-weight: 600; }
+
+.mfeed-v { color: var(--ash); }
+
+.mfeed-x {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--chrome-lo);
+}
+
+@keyframes feedIn  { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
+
+@keyframes feedOut { to { opacity: 0; transform: translateX(-14px); } }
+
+.respawn {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 26px 46px; text-align: center;
+  background: linear-gradient(180deg, rgba(30,16,16,.93), rgba(9,13,10,.95));
+  border: 1px solid rgba(228,72,60,.45);
+  border-radius: 3px;
+  animation: rise .3s var(--ease) both;
+}
+
+.respawn.hidden { display: none; }
+
+.respawn-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .3em; text-transform: uppercase;
+  color: var(--danger);
+}
+
+.respawn-num {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 62px; font-weight: 700; line-height: 1.05;
+  color: var(--bone);
+}
+
+.respawn-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
+  color: var(--ash);
+}
+
+.protect {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, 90px);
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 15px;
+  background: rgba(8,12,9,.8);
+  border: 1px solid rgba(22,228,95,.45);
+  border-radius: var(--r-sm);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--emerald);
+}
+
+.protect.hidden { display: none; }
+
+.protect-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--emerald); box-shadow: 0 0 8px var(--emerald);
+  animation: beat 1.2s ease-in-out infinite;
+}
+
+.result {
+  position: absolute; top: 34%; left: 50%;
+  transform: translate(-50%,-50%) scale(.95);
+  min-width: 380px; padding: 30px 44px; text-align: center;
+  background: linear-gradient(180deg, rgba(32,42,35,.96), rgba(9,13,10,.97));
+  border: 1px solid rgba(201,162,39,.5);
+  border-radius: 3px;
+  box-shadow: 0 26px 64px -16px rgba(0,0,0,.9);
+  opacity: 0;
+  transition: opacity .35s ease, transform .45s cubic-bezier(.16,.9,.3,1);
+}
+
+.result.is-in { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+
+.result.hidden { display: none; }
+
+.result-eyebrow {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px; letter-spacing: .32em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 8px;
+}
+
+.result-title {
+  display: block;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 42px; font-weight: 700; letter-spacing: .03em;
+  background: linear-gradient(178deg, #F2E4A8 10%, var(--gold) 48%, #7A5F14 58%, #F2E4A8 96%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.result.is-loss .result-title {
+  background: linear-gradient(178deg, #E8A9A2 10%, #C0554B 50%, #7A2A22 60%, #E8A9A2 96%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.result-score {
+  display: flex; align-items: baseline; justify-content: center; gap: 12px;
+  margin: 14px 0 18px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 34px; font-weight: 700;
+}
+
+.result-a { color: #7CC0F0; }
+
+.result-b { color: #F0AE7C; }
+
+.result-dash { color: var(--chrome-lo); font-size: 22px; }
+
+.result-rows { display: flex; flex-direction: column; gap: 3px; }
+
+.result-row {
+  display: grid; grid-template-columns: 1fr auto;
+  gap: 12px; padding: 6px 12px;
+  background: rgba(220,228,222,.04);
+  border-left: 2px solid var(--chrome-lo);
+  font-size: 12px;
+}
+
+.result-row.team-a { border-left-color: #3E9BE4; }
+
+.result-row.team-b { border-left-color: #E4823E; }
+
+.result-row span:first-child { color: var(--bone); text-align: left; }
+
+.result-row span:last-child {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; color: var(--ash);
+}
+
+/* ── state toggles ─────────────────────────────────────── */
+/* Labelled by STATE, not by action. A button that says "Switch off" reads as
+   though the thing is already off, which is the opposite of the truth. */
+
+.toggle-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+.state-toggle {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 14px;
+  background: rgba(8,12,9,.55);
+  border: 1px solid rgba(220,228,222,.14);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all .18s var(--ease);
+}
+
+.state-toggle:hover { border-color: rgba(220,228,222,.34); }
+
+.state-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--chrome-lo);
+  flex-shrink: 0;
+  transition: all .18s var(--ease);
+}
+
+.state-label {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12px; color: var(--chrome-mid);
+}
+
+.state-value {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; font-weight: 600;
+  letter-spacing: .16em;
+  padding: 2px 7px;
+  border-radius: var(--r-sm);
+  background: rgba(124,138,129,.14);
+  color: var(--ash);
+}
+
+.state-toggle.is-on { border-color: rgba(22,228,95,.4); background: rgba(22,228,95,.07); }
+
+.state-toggle.is-on .state-dot { background: var(--emerald); box-shadow: 0 0 8px var(--emerald); }
+
+.state-toggle.is-on .state-label { color: var(--bone); }
+
+.state-toggle.is-on .state-value { background: rgba(22,228,95,.16); color: var(--emerald); }
+
+/* the arena list needs to read at a glance too */
+.arena-item.is-off .arena-item-meta::after {
+  content: ' · OFF';
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* ── party invite ──────────────────────────────────────── */
+/* Keys, not buttons. An invite arrives while you're walking around, so it
+   can't take the cursor -- buttons on it would be unclickable. */
+
+.invite-toast {
+  position: fixed; right: 26px; bottom: 26px; z-index: 25;
+  display: block; padding: 0;
+  min-width: 288px;
+  background: linear-gradient(180deg, rgba(28,38,32,.97), rgba(9,13,10,.97));
+  border: 1px solid rgba(201,162,39,.45);
+  border-radius: var(--r-sm);
+  box-shadow: 0 16px 40px -12px rgba(0,0,0,.85);
+  animation: rise .3s var(--ease) both;
+  overflow: hidden;
+}
+
+.invite-toast.hidden { display: none; }
+
+.invite-bar { height: 2px; background: rgba(220,228,222,.1); }
+
+.invite-bar i {
+  display: block; height: 100%; width: 100%;
+  background: var(--gold);
+  transform-origin: left center;
+}
+
+.invite-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 20px; padding: 13px 17px;
+}
+
+.invite-keys { display: flex; gap: 8px; flex-shrink: 0; }
+
+.invite-key {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10.5px; color: var(--ash);
+}
+
+.invite-key b {
+  display: grid; place-items: center;
+  min-width: 22px; height: 22px;
+  padding: 0 5px;
+  background: rgba(220,228,222,.08);
+  border: 1px solid rgba(220,228,222,.28);
+  border-radius: var(--r-sm);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 12px; font-weight: 700;
+  color: var(--bone);
+}
+
+.invite-key.is-yes b { border-color: rgba(22,228,95,.5); color: var(--emerald); }
+
+.invite-key.is-no b { border-color: rgba(228,72,60,.45); color: #E88178; }
+
+/* ── rooms ─────────────────────────────────────────────── */
+
+.room-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 14px; margin-bottom: 20px;
+}
+
+.room-members { display: flex; flex-direction: column; gap: 5px; margin-top: 9px; }
+
+.room-member {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 10px;
+  background: rgba(8,12,9,.5);
+  border: 1px solid rgba(220,228,222,.1);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: all .16s var(--ease);
+}
+
+.room-member:hover { border-color: rgba(220,228,222,.3); }
+
+.room-member.is-dummy { opacity: .65; }
+
+.room-member.is-me { border-color: rgba(22,228,95,.4); background: rgba(22,228,95,.06); }
+
+.room-member-av {
+  width: 24px; height: 24px; flex-shrink: 0;
+  display: grid; place-items: center; border-radius: 50%;
+  background: rgba(220,228,222,.08);
+  border: 1px solid rgba(220,228,222,.22);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 11px; font-weight: 700; color: var(--chrome-mid);
+}
+
+.room-member-name {
+  flex: 1; min-width: 0;
+  font-size: 12px; color: var(--bone);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.room-member-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--gold);
+}
+
+.room-empty {
+  padding: 10px; text-align: center;
+  font-size: 11px; color: var(--ash);
+  border: 1px dashed rgba(220,228,222,.12);
+}
+
+.item-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 7px; }
+
+.item-card {
+  padding: 9px 8px; text-align: center;
+  background: rgba(8,12,9,.55);
+  border: 1px solid rgba(220,228,222,.12);
+  border-radius: var(--r-sm);
+}
+
+.item-card img { width: 100%; height: 28px; object-fit: contain; margin-bottom: 5px; }
+
+.item-card span { display: block; font-size: 10.5px; color: var(--ash); margin-bottom: 6px; }
+
+.item-steps { display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+.item-steps button {
+  width: 20px; height: 20px;
+  background: rgba(220,228,222,.06);
+  border: 1px solid rgba(220,228,222,.18);
+  border-radius: var(--r-sm);
+  color: var(--chrome-mid);
+  font-size: 12px; line-height: 1; cursor: pointer;
+}
+
+.item-steps button:hover { color: var(--bone); border-color: rgba(201,162,39,.5); }
+
+.item-steps b {
+  min-width: 18px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 14px; color: var(--bone);
+}
+
+.item-card.is-off { opacity: .45; }
+
+.item-card.is-off b { color: var(--ash); }
+
+.room-row {
+  display: grid; grid-template-columns: 1fr auto auto;
+  align-items: center; gap: 14px;
+  padding: 14px 16px;
+  background: linear-gradient(158deg, rgba(220,228,222,.045), rgba(220,228,222,.012) 42%), var(--raised);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background .16s var(--ease);
+}
+
+.room-row:hover { background: rgba(220,228,222,.07); }
+
+.room-row-name { font-size: 13px; color: var(--bone); }
+
+.room-row-sub {
+  display: block; margin-top: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; color: var(--ash);
+}
+
+.room-row-count {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 15px; font-weight: 700; color: var(--emerald);
+}
+
+.room-row.is-full .room-row-count { color: var(--danger); }
+
+#rInviteId { flex: 0 0 90px; letter-spacing: .1em; font-size: 15px; }
+
+/* ── "none" weapon slot ────────────────────────────────── */
+
+.wep-none-mark {
+  height: 34px;
+  display: grid; place-items: center;
+  margin-bottom: 5px;
+  font-size: 22px; line-height: 1;
+  color: var(--chrome-lo);
+}
+
+.wep-card.wep-none.is-on .wep-none-mark { color: var(--gold); }
+
+.hb-none {
+  font-size: 20px; line-height: 1;
+  color: rgba(220,228,222,.25);
+}
+
+/* ── down for the round ────────────────────────────────── */
+
+.downed {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 22px 42px; text-align: center;
+  background: linear-gradient(180deg, rgba(28,18,18,.92), rgba(9,13,10,.94));
+  border: 1px solid rgba(228,72,60,.4);
+  border-radius: 3px;
+  animation: rise .3s var(--ease) both;
+}
+
+.downed.hidden { display: none; }
+
+.downed-title {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 26px; font-weight: 700; color: var(--bone);
+}
+
+.downed-sub { font-size: 12.5px; color: var(--ash); }
+
+.downed-sub.is-last { color: var(--danger); }
+
+/* ── match inventory ───────────────────────────────────── */
+
+#invRoot { position: fixed; inset: 0; display: grid; place-items: center; z-index: 28; }
+
+#invRoot.hidden { display: none; }
+
+.inv-panel {
+  position: relative;
+  width: min(660px, 92vw);
+  padding: 26px 28px 22px;
+  background:
+    radial-gradient(110% 80% at 20% 0%, rgba(201,162,39,.08), transparent 55%),
+    linear-gradient(180deg, var(--raised) 0%, var(--panel) 34%, var(--ink) 100%);
+  border-radius: var(--r-lg);
+  box-shadow:
+    0 0 0 1px rgba(201,162,39,.22),
+    0 40px 90px -24px rgba(0,0,0,.92),
+    inset 0 1px 0 rgba(220,228,222,.09);
+  animation: rise .28s var(--ease) both;
+}
+
+.inv-head {
+  display: flex; align-items: center; gap: 22px;
+  padding-bottom: 18px; margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.inv-eyebrow {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .3em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 3px;
+}
+
+.inv-title {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 22px; font-weight: 700; letter-spacing: .02em; color: var(--bone);
+}
+
+.inv-weight { flex: 1; min-width: 0; }
+
+.inv-weight-bar {
+  height: 4px; background: rgba(220,228,222,.1);
+  border-radius: var(--r-sm); overflow: hidden; margin-bottom: 5px;
+}
+
+.inv-weight-bar i {
+  display: block; height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--emerald), #3AF37C);
+  transition: width .25s var(--ease), background .25s var(--ease);
+}
+
+.inv-weight-bar.is-heavy i { background: linear-gradient(90deg, #E4A83C, var(--gold)); }
+
+.inv-weight-bar.is-full i { background: linear-gradient(90deg, #C0554B, var(--danger)); }
+
+.inv-weight-text {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .1em; color: var(--ash);
+}
+
+.inv-hotbar-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--chrome-lo); margin-bottom: 8px;
+}
+
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 5), 1fr);
+  gap: 9px;
+  margin-bottom: 26px;   /* room for the item names under the last row */
+}
+
+.inv-slot {
+  position: relative;
+  aspect-ratio: 1;
+  display: grid; place-items: center;
+  background: rgba(8,12,9,.6);
+  border: 1px solid rgba(220,228,222,.1);
+  border-radius: 4px;
+  transition: all .14s var(--ease);
+}
+
+.inv-slot.is-hotbar {
+  border-color: rgba(201,162,39,.32);
+  background: rgba(201,162,39,.05);
+}
+
+.inv-slot.has-item { cursor: grab; }
+
+.inv-slot.has-item:hover { border-color: rgba(220,228,222,.4); }
+
+.inv-slot.is-dragging { opacity: .35; cursor: grabbing; }
+
+.inv-slot.is-over {
+  border-color: var(--emerald);
+  background: rgba(22,228,95,.12);
+  box-shadow: inset 0 0 0 1px rgba(22,228,95,.4);
+}
+
+.inv-slot img {
+  width: 78%; height: 62%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.inv-slot-key {
+  position: absolute; top: 3px; left: 5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; color: var(--gold);
+}
+
+.inv-slot-count {
+  /* Above the name, not on top of it. The count and the label were both
+     pinned to the bottom of the slot and overlapped on anything stacked. */
+  position: absolute; bottom: 18px; right: 6px;
+  padding: 1px 5px;
+  background: rgba(6,9,7,.72);
+  border-radius: 999px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 12px; font-weight: 700; color: var(--bone);
+  text-shadow: 0 1px 3px rgba(0,0,0,.9);
+}
+
+/* The name sits INSIDE the slot with room reserved for it.
+   
+   There were two rules for this: one inside at 8.5px and one hanging 17px
+   below the slot, which landed on the row underneath. Names were clipped by
+   whichever won. One rule now, and the artwork is inset from the bottom so
+   the name has somewhere to be. */
+.inv-slot-name {
+  position: absolute; left: 3px; right: 3px; bottom: 4px;
+  font-size: 9px; line-height: 1.2;
+  text-align: center;
+  color: var(--chrome-mid);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  pointer-events: none;
+}
+
+/* This pushed the name back OUTSIDE the slot for filled slots, which is
+   exactly the clipping it was meant to avoid -- the row below drew over it.
+   The name stays inside; the artwork is inset to make room. */
+
+.inv-hint {
+  margin-top: 22px;
+  font-size: 11px; color: var(--ash); line-height: 1.6;
+}
+
+/* ── drag ghost ────────────────────────────────────────── */
+/* Carried under the cursor by hand, because CEF's native drag-and-drop is
+   unreliable -- dragstart often never fires and dataTransfer is restricted. */
+
+.inv-ghost {
+  position: fixed;
+  z-index: 999;
+  width: 58px; height: 58px;
+  margin-left: -29px; margin-top: -29px;
+  display: grid; place-items: center;
+  pointer-events: none;
+  background: rgba(20,28,23,.92);
+  border: 1px solid rgba(22,228,95,.55);
+  border-radius: 4px;
+  box-shadow: 0 8px 22px -6px rgba(0,0,0,.9);
+  opacity: .92;
+}
+
+.inv-ghost img {
+  width: 78%; height: 70%;
+  object-fit: contain;
+}
+
+/* nothing inside the grid should be text-selectable while dragging */
+.inv-grid, .inv-slot { user-select: none; -webkit-user-select: none; }
+
+/* ── leaderboard ───────────────────────────────────────── */
+/* A table, not a list of sentences. Columns line up so you can compare down
+   a column, which is the whole reason to look at a leaderboard. */
+
+.lb {
+  display: flex; flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+
+.lb-head, .lb-row {
+  display: grid;
+  grid-template-columns: 46px 1fr 74px 82px 74px 60px 60px 88px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+}
+
+.lb-head {
+  height: 36px;
+  background: rgba(201,162,39,.09);
+  border-bottom: 1px solid rgba(201,162,39,.3);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px; font-weight: 600;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: var(--gold);
+  text-align: right;
+}
+
+.lb-head .lb-player, .lb-head span:first-child { text-align: left; }
+
+.lb-rows { display: flex; flex-direction: column; }
+
+.lb-row {
+  height: 42px;
+  font-size: 13px;
+  text-align: right;
+  border-bottom: 1px solid rgba(220,228,222,.05);
+  transition: background .15s var(--ease);
+}
+
+.lb-row:last-child { border-bottom: 0; }
+
+.lb-row:hover { background: rgba(220,228,222,.04); }
+
+/* your own row, so you can find yourself without reading every name */
+.lb-row.is-you {
+  background: rgba(22,228,95,.09);
+  box-shadow: inset 2px 0 0 var(--emerald);
+}
+
+.lb-rank {
+  text-align: left;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 16px; font-weight: 700;
+  color: var(--ash);
+}
+
+.lb-row.r1 .lb-rank { color: var(--gold); }
+
+.lb-row.r2 .lb-rank { color: #C3CFC7; }
+
+.lb-row.r3 .lb-rank { color: #C9884A; }
+
+.lb-player {
+  display: flex; align-items: center; gap: 9px;
+  text-align: left; min-width: 0;
+}
+
+.lb-lv {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  background: rgba(201,162,39,.13);
+  border: 1px solid rgba(201,162,39,.36);
+  border-radius: 999px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px; font-weight: 600;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
+.lb-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--bone); font-weight: 600;
+}
+
+.lb-row.r1 .lb-name { color: var(--gold); }
+
+.lb-num {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--chrome-mid);
+}
+
+.lb-num.k   { color: var(--bone); }
+
+.lb-num.d   { color: var(--ash); }
+
+.lb-num.w   { color: var(--emerald); }
+
+.lb-num.l   { color: var(--danger); }
+
+.lb-num.pts { color: var(--gold); font-weight: 600; font-size: 13.5px; }
+
+.rz-row {
+  display: grid; grid-template-columns: 1fr auto auto;
+  align-items: center; gap: 16px;
+  padding: 15px 18px;
+  background: linear-gradient(158deg, rgba(220,228,222,.045), rgba(220,228,222,.012) 42%), var(--raised);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--danger);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background .16s var(--ease);
+}
+
+.rz-row:hover { background: rgba(228,72,60,.09); }
+
+.rz-row-name { font-size: 14px; color: var(--bone); }
+
+.rz-row-sub {
+  display: block; margin-top: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; color: var(--ash);
+}
+
+.rz-row-count {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 17px; font-weight: 700; color: var(--emerald);
+}
+
+.rz-row-count.is-empty { color: var(--ash); }
+
+/* ── the shop ──────────────────────────────────────────── */
+
+#shopRoot { position: fixed; inset: 0; display: grid; place-items: center; }
+
+#shopRoot.hidden { display: none; }
+
+.shop-console { width: min(940px, 92vw); height: min(660px, 90vh); }
+
+.wallet {
+  padding: 8px 16px;
+  background: rgba(201,162,39,.1);
+  border: 1px solid rgba(201,162,39,.4);
+  border-radius: var(--r-sm);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 19px; font-weight: 700; color: var(--gold);
+}
+
+.wallet b {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: .14em; color: var(--ash);
+  margin-left: 4px;
+}
+
+.shop-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.shop-item {
+  padding: 16px 12px; text-align: center;
+  background: linear-gradient(158deg, rgba(220,228,222,.04), rgba(220,228,222,.01) 42%), var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: all .16s var(--ease);
+}
+
+.shop-item:hover {
+  border-color: rgba(201,162,39,.45);
+  background: linear-gradient(158deg, rgba(201,162,39,.1), rgba(201,162,39,.02) 42%), var(--raised-hi);
+  transform: translateY(-2px);
+}
+
+.shop-item.cant { opacity: .42; cursor: not-allowed; }
+
+.shop-item.cant:hover { border-color: rgba(220,228,222,.12); background: rgba(8,12,9,.5); }
+
+.shop-item img { width: 100%; height: 44px; object-fit: contain; margin-bottom: 8px; }
+
+.shop-name { display: block; font-size: 12.5px; color: var(--bone); margin-bottom: 3px; }
+
+.shop-meta {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px; letter-spacing: .1em; color: var(--ash);
+  margin-bottom: 8px;
+}
+
+.shop-price {
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(201,162,39,.14);
+  border: 1px solid rgba(201,162,39,.4);
+  border-radius: 999px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 14px; font-weight: 700; color: var(--gold);
+}
+
+.shop-item.cant .shop-price { background: rgba(228,72,60,.12); border-color: rgba(228,72,60,.4); color: var(--danger); }
+
+/* Cash out sits at the bottom of the sidebar, under the categories -- a
+   thing you do occasionally, not something that belongs beneath every shelf
+   in the shop. Pinned to the bottom so it stays put as categories change. */
+
+.shop-rail { display: flex; flex-direction: column; }
+
+.shop-rail > #shopCats { display: flex; flex-direction: column; gap: 4px; }
+
+.convert {
+  margin-top: auto;
+  padding: 14px 15px 15px;
+  background: linear-gradient(158deg, rgba(22,228,95,.06), rgba(22,228,95,.015) 46%), var(--raised);
+  border: 1px solid rgba(22,228,95,.26);
+  border-radius: var(--r-md);
+}
+
+.convert.hidden { display: none; }
+
+.convert-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px; margin-bottom: 6px;
+}
+
+.convert-title {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 14px; font-weight: 600; color: var(--bone);
+}
+
+.convert-rate {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .1em;
+  color: var(--emerald);
+  white-space: nowrap;
+}
+
+.convert-note {
+  font-size: 11px; line-height: 1.5; color: var(--ash);
+  margin-bottom: 10px;
+}
+
+.convert-note strong { color: var(--bone); }
+
+.convert-row { display: flex; gap: 6px; }
+
+.convert-row input {
+  flex: 1; min-width: 0;
+  padding: 8px 10px;
+  background: var(--ink);
+  border: 1px solid rgba(22,228,95,.3);
+  border-radius: var(--r-sm);
+  color: var(--bone);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 15px; font-weight: 700; text-align: center;
+}
+
+.convert-row input:focus { outline: 2px solid var(--emerald); outline-offset: 1px; }
+
+.convert-row .btn { padding: 8px 14px; font-size: 12px; white-space: nowrap; }
+
+.convert-preview {
+  margin-top: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; line-height: 1.5;
+  color: var(--ash);
+}
+
+/* ============================================================
+   CARDS · the chamfer
+   ============================================================ */
+/* Three soft corners and one clipped, with a gold hairline across
+   the cut. It is the zone boundary abstracted -- the thing this
+   script actually draws -- and it gives every panel a corner that
+   is unmistakably this server rather than a generic rounded box. */
+
+.card,
+.stat,
+.hero {
+  position: relative;
+  background:
+    linear-gradient(158deg, rgba(220,228,222,.045), rgba(220,228,222,.012) 42%),
+    var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: inset 0 1px 0 rgba(220,228,222,.05);
+}
+
+/* the cut itself */
+.card.chamfer,
+.hero {
+  border-top-right-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
+}
+
+/* and the hairline that sits on it */
+.card.chamfer::after,
+.hero::after {
+  content: '';
+  position: absolute;
+  top: -1px; right: -1px;
+  width: 30px; height: 30px;
+  background: linear-gradient(45deg, transparent 49%, var(--gold) 49%, var(--gold) 53%, transparent 53%);
+  pointer-events: none;
+  opacity: .85;
+}
+
+.card { padding: 20px 22px; }
+
+.card-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 14px; margin-bottom: 14px;
+}
+
+.card-title {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 17px; font-weight: 600; color: var(--bone);
+}
+
+.card-state {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ash);
+}
+
+.card-note { font-size: 12.5px; line-height: 1.65; color: var(--ash); }
+
+/* ── the hero row ──────────────────────────────────────── */
+/* Identity on the left, the numbers that matter on the right. */
+
+.hero-row {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.hero {
+  grid-row: span 2;
+  padding: 24px 26px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  background:
+    radial-gradient(90% 120% at 100% 0%, rgba(201,162,39,.13), transparent 58%),
+    linear-gradient(158deg, rgba(220,228,222,.05), rgba(220,228,222,.012) 42%),
+    var(--raised);
+}
+
+.hero-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; font-weight: 600;
+  letter-spacing: .28em; text-transform: uppercase;
+  color: var(--gold);
+}
+
+.hero-name {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 40px; font-weight: 700; line-height: 1;
+  color: var(--bone);
+  margin: 10px 0 4px;
+}
+
+.hero-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px; letter-spacing: .1em;
+  color: var(--ash);
+}
+
+.hero-foot { margin-top: 20px; }
+
+/* progress, used for placement-style counts */
+.meter {
+  height: 5px;
+  background: rgba(220,228,222,.08);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-top: 9px;
+}
+
+.meter i {
+  display: block; height: 100%;
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold-hot));
+  border-radius: 99px;
+  transition: width .5s var(--ease);
+}
+
+.meter.is-live i { background: linear-gradient(90deg, var(--emerald-dim), var(--emerald)); }
+
+/* ── stat tiles ────────────────────────────────────────── */
+
+.stat { padding: 16px 18px; display: flex; flex-direction: column; justify-content: center; }
+
+.stat-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px; font-weight: 600;
+  letter-spacing: .2em; text-transform: uppercase;
+  color: var(--chrome-lo);
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 34px; font-weight: 700; line-height: 1;
+  color: var(--bone);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-value.is-gold { color: var(--gold); }
+
+.stat-value.is-good { color: var(--emerald); }
+
+.stat-value.is-bad  { color: var(--danger); }
+
+.stat-sub {
+  margin-top: 5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; color: var(--ash);
+}
+
+/* ── section headings ──────────────────────────────────── */
+
+.section-head { margin: 26px 0 12px; }
+
+.section-head:first-child { margin-top: 0; }
+
+.section-head h2 {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 20px; font-weight: 600; color: var(--bone);
+}
+
+.section-head p { margin-top: 3px; font-size: 12.5px; color: var(--ash); }
+
+/* ── buttons, restated for the new radii ───────────────── */
+
+.btn {
+  padding: 12px 22px;
+  border: 1px solid var(--line-hi);
+  border-radius: var(--r-sm);
+  background: var(--raised);
+  color: var(--chrome-mid);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 14px; font-weight: 600;
+  letter-spacing: .02em;
+  cursor: pointer;
+  transition: all .18s var(--ease);
+}
+
+.btn:hover { background: var(--raised-hi); color: var(--bone); border-color: rgba(201,162,39,.4); }
+
+.btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.btn-primary {
+  background: linear-gradient(180deg, var(--emerald), var(--emerald-dim));
+  border-color: rgba(22,228,95,.5);
+  color: #04170B;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(180deg, #2CF572, var(--emerald));
+  color: #04170B;
+  border-color: rgba(22,228,95,.7);
+}
+
+.mini {
+  padding: 6px 13px;
+  border: 1px solid var(--line-hi);
+  border-radius: 99px;
+  background: var(--raised);
+  color: var(--chrome-mid);
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 11px; font-weight: 600;
+  cursor: pointer;
+  transition: all .16s var(--ease);
+}
+
+.mini:hover { background: var(--raised-hi); color: var(--bone); border-color: rgba(201,162,39,.4); }
+
+.mini-danger:hover { border-color: rgba(228,72,60,.5); color: var(--danger); }
+
+/* ── footer ────────────────────────────────────────────── */
+
+.foot {
+  position: relative; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 30px;
+  border-top: 1px solid var(--line);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--chrome-lo);
+}
+
+.foot.is-flash { color: var(--emerald); }
+
+.foot.is-error { color: var(--danger); }
+
+.foot-brand { color: var(--gold-dim); }
+
+@keyframes rise { from { opacity: 0; transform: translateY(14px) scale(.99); } to { opacity: 1; transform: none; } }
+
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+@keyframes beat { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* ── odds and ends the sweep missed ────────────────────── */
+
+.fold-note {
+  font-size: 12.5px; line-height: 1.65;
+  color: var(--ash);
+  margin-bottom: 12px;
+}
+
+.fold-note code {
+  padding: 2px 6px;
+  background: rgba(201,162,39,.1);
+  border-radius: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px;
+  color: var(--gold);
+}
+
+.wep-col { min-width: 0; }
+
+/* live/idle indicator in the header */
+.pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 15px;
+  background: var(--raised);
+  border: 1px solid rgba(22,228,95,.36);
+  border-radius: 99px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: var(--emerald);
+}
+
+.pill-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--emerald);
+  box-shadow: 0 0 9px var(--emerald);
+  animation: beat 1.6s var(--ease) infinite;
+}
+
+.pill.pill-idle {
+  border-color: var(--line-hi);
+  color: var(--ash);
+}
+
+.pill.pill-idle .pill-dot {
+  background: var(--chrome-lo);
+  box-shadow: none;
+  animation: none;
+}
+
+
+/* A photo of the place says more at a glance than any description of it. */
+
+.zone-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+  gap: 14px;
+}
+
+.zone-card {
+  position: relative;
+  display: flex; flex-direction: column;
+  background: linear-gradient(158deg, rgba(220,228,222,.045), rgba(220,228,222,.012) 42%), var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  transition: all .2s var(--ease);
+}
+
+.zone-card:hover {
+  border-color: rgba(228,72,60,.42);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px -14px rgba(0,0,0,.7);
+}
+
+.zone-card.is-here {
+  border-color: rgba(22,228,95,.45);
+  box-shadow: inset 0 0 0 1px rgba(22,228,95,.2);
+}
+
+.zone-art {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+.zone-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* a zone without a photo still looks like itself */
+.zone-fallback {
+  width: 100%; height: 100%;
+  display: grid; place-items: center;
+}
+
+.zone-fallback span {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 52px; font-weight: 700;
+  color: rgba(232,239,233,.16);
+}
+
+/* darken the bottom of the art so the label below always reads */
+.zone-art::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 45%, rgba(6,9,7,.82));
+  pointer-events: none;
+}
+
+.zone-count {
+  position: absolute; left: 10px; bottom: 9px; z-index: 1;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 4px 11px;
+  background: rgba(6,9,7,.78);
+  border: 1px solid var(--line-hi);
+  border-radius: 99px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ash);
+}
+
+.zone-count.is-live { border-color: rgba(228,72,60,.5); color: #FF9E92; }
+
+.zone-count i {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 8px var(--danger);
+  animation: beat 1.4s var(--ease) infinite;
+}
+
+.zone-body { padding: 14px 15px 15px; display: flex; flex-direction: column; gap: 3px; }
+
+.zone-name {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 17px; font-weight: 600; color: var(--bone);
+}
+
+.zone-meta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; color: var(--ash);
+  margin-bottom: 11px;
+}
+
+.zone-go { width: 100%; padding: 10px; font-size: 13px; }
+
+/* ── back to lobby ─────────────────────────────────────── */
+/* Lives in the header so it's reachable from any tab. It turns red on the
+   confirm step, because in a match it hands the other side the win and that
+   should not be a single unconsidered click. */
+
+.back-btn { padding: 9px 18px; font-size: 13px; }
+
+.back-btn.is-confirm {
+  border-color: rgba(228,72,60,.55);
+  background: linear-gradient(180deg, rgba(228,72,60,.2), rgba(228,72,60,.08));
+  color: #FF9E92;
+}
+
+/* ── board switcher ────────────────────────────────────── */
+/* Two boards measuring different things, so switching between them should
+   feel like changing view -- not like navigating somewhere else. */
+
+.switch {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 99px;
+}
+
+.switch-item {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 8px 20px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 99px;
+  text-align: left;
+  cursor: pointer;
+  transition: all .18s var(--ease);
+}
+
+.switch-item:hover { background: rgba(220,228,222,.04); }
+
+.switch-item:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.switch-label {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 14px; font-weight: 600;
+  color: var(--chrome-mid);
+}
+
+.switch-meta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--chrome-lo);
+}
+
+.switch-item.is-on {
+  background: linear-gradient(180deg, var(--raised-hi), var(--raised));
+  border-color: var(--line-hi);
+  box-shadow: inset 0 1px 0 rgba(220,228,222,.07);
+}
+
+.switch-item.is-on .switch-label { color: var(--bone); }
+
+.switch-item.is-on .switch-meta { color: var(--gold); }
+
+
+
+
+/* ============================================================
+   RANKED
+   ============================================================
+   A different world to the casual side, and it should feel like one.
+
+   Casual is NAIJA green and gold -- the server's own colours. Ranked is
+   violet: the colour every game reserves for the rarest thing it has, with
+   a teal counterpoint so it reads tropical rather than gothic. Switching
+   between the two should feel like changing venue, not changing tab. */
+
+#rankedRoot {
+  position: fixed; inset: 0;
+  display: grid; place-items: center;
+
+  --ink:       #08050F;
+  --panel:     #100B1C;
+  --raised:    #191128;
+  --raised-hi: #221733;
+
+  --line:      rgba(213,170,255,.09);
+  --line-hi:   rgba(213,170,255,.17);
+
+  --gold:      #A855F7;      /* the brand accent, re-pointed */
+  --gold-hot:  #D5AAFF;
+  --gold-dim:  #6B21A8;
+
+  --emerald:   #2DD4BF;      /* teal carries "good" here */
+  --emerald-dim:#0F9E8C;
+
+  --bone:      #EDE9F5;
+  --ash:       #9188A8;
+  --chrome-mid:#B0A6C6;
+  --chrome-lo: #6F6485;
+  --danger:    #F472B6;
+}
+
+.ranked-console {
+  background:
+    radial-gradient(120% 90% at 12% 0%, rgba(168,85,247,.14), transparent 55%),
+    radial-gradient(90% 70% at 100% 100%, rgba(45,212,191,.07), transparent 60%),
+    linear-gradient(180deg, var(--raised) 0%, var(--panel) 30%, var(--ink) 100%);
+  box-shadow:
+    0 0 0 1px rgba(168,85,247,.26),
+    0 50px 120px -30px rgba(0,0,0,.92),
+    inset 0 1px 0 rgba(213,170,255,.1);
+}
+
+.ranked-switch {
+  border-color: rgba(168,85,247,.4);
+  background: linear-gradient(180deg, rgba(168,85,247,.18), rgba(168,85,247,.06));
+  color: #D5AAFF;
+  padding: 9px 18px; font-size: 13px;
+}
+
+.ranked-switch:hover {
+  border-color: rgba(168,85,247,.7);
+  background: linear-gradient(180deg, rgba(168,85,247,.3), rgba(168,85,247,.1));
+  color: #EBD6FF;
+}
+
+.rkpanel { display: none; animation: fade .26s var(--ease) both; }
+
+.rkpanel.is-active { display: block; }
+
+/* ── the standing ──────────────────────────────────────── */
+
+.rank-hero {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 26px; align-items: center;
+  padding: 26px 30px;
+  background:
+    radial-gradient(70% 120% at 0% 50%, rgba(168,85,247,.16), transparent 60%),
+    linear-gradient(158deg, rgba(213,170,255,.05), rgba(213,170,255,.012) 42%),
+    var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  border-top-right-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
+  margin-bottom: 14px;
+}
+
+.rank-hero-badge { display: grid; place-items: center; min-width: 130px; }
+
+.rank-eyebrow {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; font-weight: 600;
+  letter-spacing: .28em; text-transform: uppercase;
+  color: #D5AAFF;
+}
+
+.rank-name {
+  display: block; margin: 8px 0 2px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 42px; font-weight: 700; line-height: 1;
+  background: linear-gradient(120deg, #EBD6FF, #A855F7 55%, #2DD4BF);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.rank-elo {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px; color: var(--ash);
+}
+
+.rank-elo b {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 22px; color: var(--bone); margin-right: 6px;
+}
+
+.rank-progress { margin-top: 18px; max-width: 460px; }
+
+.rank-progress-head {
+  display: flex; justify-content: space-between;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--chrome-lo);
+  margin-bottom: 7px;
+}
+
+.meter.is-rank i { background: linear-gradient(90deg, #6B21A8, #A855F7 60%, #2DD4BF); }
+
+.rank-stats {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 10px; margin-bottom: 8px;
+}
+
+.stat-value.is-rank { color: #D5AAFF; }
+
+/* ── the ladder ────────────────────────────────────────── */
+
+.ladder {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
+  gap: 12px;
+}
+
+.ladder-item {
+  padding: 18px 14px 16px; text-align: center;
+  background: linear-gradient(158deg, rgba(213,170,255,.045), rgba(213,170,255,.01) 42%), var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  transition: all .2s var(--ease);
+}
+
+.ladder-item:hover { border-color: var(--line-hi); transform: translateY(-2px); }
+
+/* yours, so you can find it in a wall of gems */
+.ladder-item.is-you {
+  border-color: rgba(168,85,247,.55);
+  background:
+    radial-gradient(100% 80% at 50% 0%, rgba(168,85,247,.2), transparent 62%),
+    var(--raised-hi);
+  box-shadow: inset 0 1px 0 rgba(213,170,255,.2);
+}
+
+.ladder-item.is-locked { opacity: .42; }
+
+.ladder-badge { display: grid; place-items: center; height: 104px; margin-bottom: 10px; }
+
+.ladder-name {
+  display: block;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 15px; font-weight: 600; color: var(--bone);
+}
+
+.ladder-elo {
+  display: block; margin-top: 3px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; letter-spacing: .1em;
+  color: var(--ash);
+}
+
+.ladder-item.is-you .ladder-elo { color: #D5AAFF; }
+
+/* ── top players and history ───────────────────────────── */
+
+.lb-head.rk-head, .rk-row {
+  grid-template-columns: 46px 1fr 150px 60px 60px 96px;
+}
+
+.rk-badge-mini { display: inline-flex; align-items: center; gap: 8px; }
+
+.rk-badge-mini .badge { flex: 0 0 auto; }
+
+.rk-tier-name {
+  font-family: 'IBM Plex Sans', sans-serif;
+  font-size: 12px; color: var(--chrome-mid);
+  white-space: nowrap;
+}
+
+.history { display: flex; flex-direction: column; gap: 6px; }
+
+.hist-row {
+  display: grid; grid-template-columns: 8px 1fr auto auto;
+  align-items: center; gap: 14px;
+  padding: 13px 16px;
+  background: linear-gradient(158deg, rgba(213,170,255,.04), rgba(213,170,255,.01) 42%), var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.hist-bar { width: 4px; height: 30px; border-radius: 99px; background: var(--danger); }
+
+.hist-row.won .hist-bar { background: var(--emerald); }
+
+.hist-who { font-size: 13.5px; color: var(--bone); }
+
+.hist-meta {
+  display: block; margin-top: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; color: var(--ash);
+}
+
+.hist-delta {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 19px; font-weight: 700;
+  color: var(--danger);
+}
+
+.hist-row.won .hist-delta { color: var(--emerald); }
+
+.hist-elo {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px; color: var(--chrome-lo);
+}
+
+/* ── badge sparkle ─────────────────────────────────────── */
+/* Every timing carries a per-badge delay, so a wall of sixteen twinkles
+   unevenly instead of pulsing in lockstep like a Christmas tree. */
+
+.badge .spark {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: twinkle var(--t, 3s) var(--ease) var(--d, 0s) infinite;
+  opacity: 0;
+}
+
+@keyframes twinkle {
+  0%, 72%, 100% { opacity: 0;   transform: scale(.3) rotate(0deg); }
+
+  80%           { opacity: 1;   transform: scale(1)  rotate(24deg); }
+
+  88%           { opacity: .55; transform: scale(.7) rotate(40deg); }
+
+}
+
+.badge .sheen {
+  animation: sweep 4.5s var(--ease) var(--d, 0s) infinite;
+}
+
+@keyframes sweep {
+  0%, 62% { transform: skewX(-18deg) translateX(0); }
+
+  84%     { transform: skewX(-18deg) translateX(190px); }
+
+  100%    { transform: skewX(-18deg) translateX(190px); }
+
+}
+
+.badge .halo {
+  animation: breathe 3.6s ease-in-out var(--d, 0s) infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: .8;  transform: scale(.97); }
+
+  50%      { opacity: 1;   transform: scale(1.05); }
+
+}
+
+/* the top two tiers get a drop shadow of their own colour */
+.badge.is-legend { filter: drop-shadow(0 0 14px rgba(168,85,247,.45)); }
+
+/* A locked tier on the ladder is a preview, not a trophy -- it holds still. */
+.ladder-row.is-locked .badge .spark,
+.ladder-row.is-locked .badge .sheen,
+.ladder-row.is-locked .badge .halo { animation: none; opacity: 0; }
+
+.ladder-row.is-locked .badge.is-legend { filter: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .badge .spark { opacity: .55; animation: none; }
+
+  .badge .sheen, .badge .halo { animation: none; }
+
+}
+
+/* ── ranked, with the lights on ─────────────────────────── */
+
+/* The ranked console gets its own atmosphere -- violet bloom from above and
+   a slow drift, so switching from casual feels like walking into a different
+   room rather than repainting the same one. */
+.ranked-console {
+  background:
+    radial-gradient(90% 60% at 50% -10%, rgba(168,85,247,.16), transparent 58%),
+    radial-gradient(70% 50% at 85% 100%, rgba(192,38,211,.10), transparent 60%),
+    linear-gradient(180deg, #171126 0%, #0C0916 34%, #06040C 100%);
+  box-shadow:
+    0 0 0 1px rgba(168,85,247,.28),
+    0 50px 120px -30px rgba(0,0,0,.94),
+    inset 0 1px 0 rgba(232,239,233,.09);
+}
+
+.ranked-console .mark-season { color: #C79CFF; }
+
+.ranked-console .rail-item.is-active::before {
+  background: linear-gradient(180deg, #D5AAFF, #7C3AED);
+}
+
+.ranked-console .rail-item.is-active .rail-meta { color: #C79CFF; }
+
+.ranked-console .stage::-webkit-scrollbar-thumb:hover {
+  background: rgba(168,85,247,.5); background-clip: content-box;
+}
+
+/* dust drifting up behind the standing page */
+.rank-hero { position: relative; overflow: hidden; }
+
+.rank-hero::before {
+  content: '';
+  position: absolute; inset: -40% -10%;
+  background-image:
+    radial-gradient(2px 2px at 12% 80%, rgba(213,170,255,.7), transparent),
+    radial-gradient(2px 2px at 32% 60%, rgba(255,255,255,.5), transparent),
+    radial-gradient(1.5px 1.5px at 58% 88%, rgba(213,170,255,.6), transparent),
+    radial-gradient(2px 2px at 76% 70%, rgba(255,255,255,.45), transparent),
+    radial-gradient(1.5px 1.5px at 90% 84%, rgba(213,170,255,.55), transparent),
+    radial-gradient(2px 2px at 46% 94%, rgba(255,255,255,.4), transparent);
+  animation: motes 14s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes motes {
+  from { transform: translateY(0)     rotate(0deg); opacity: .35; }
+
+  50%  {                                            opacity: .75; }
+
+  to   { transform: translateY(-140px) rotate(4deg); opacity: .35; }
+
+}
+
+.rank-hero > * { position: relative; z-index: 1; }
+
+/* the rating counts up rather than appearing, so a change is felt */
+.rank-elo b {
+  background: linear-gradient(180deg, #FFFFFF, #C79CFF 60%, #7C3AED);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 12px rgba(168,85,247,.4));
+}
+
+/* the ladder row you're standing on */
+.ladder-row.is-you {
+  border-color: rgba(168,85,247,.5);
+  background:
+    radial-gradient(80% 200% at 0% 50%, rgba(168,85,247,.16), transparent 60%),
+    linear-gradient(158deg, rgba(232,239,233,.05), rgba(232,239,233,.012) 42%), #131B16;
+  box-shadow: inset 0 0 0 1px rgba(168,85,247,.18);
+}
+
+.ladder-row.is-you::after {
+  content: 'YOU ARE HERE';
+  position: absolute; right: 16px; top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 12px;
+  border: 1px solid rgba(168,85,247,.5);
+  border-radius: 99px;
+  background: rgba(168,85,247,.14);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: .18em;
+  color: #D5AAFF;
+  animation: breathe 3s ease-in-out infinite;
+}
+
+.ladder-row { position: relative; }
+
+.meter.is-rank i {
+  background: linear-gradient(90deg, #5C2A9E, #A855F7 60%, #D5AAFF);
+  box-shadow: 0 0 12px rgba(168,85,247,.6);
+}
+
+.stat-value.is-rank { color: #C79CFF; }
+
+/* a rank change is the one moment worth being loud about */
+@keyframes rankup {
+  0%   { transform: scale(.6) rotate(-8deg); opacity: 0; }
+
+  55%  { transform: scale(1.14) rotate(3deg); opacity: 1; }
+
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+
+}
+
+.rank-change .badge { animation: rankup .9s var(--ease) both; }
+
+/* ── the inventory, properly ───────────────────────────── */
+/* It was a grid of black squares that vanished entirely when empty. An
+   inventory should look like an inventory whether or not you own anything --
+   the slots are the interface, the items are just what's in them. */
+
+.inv-slot {
+  position: relative;
+  aspect-ratio: 1;
+  display: grid; place-items: center;
+  background:
+    linear-gradient(158deg, rgba(220,228,222,.05), rgba(220,228,222,.014) 46%),
+    var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  transition: all .16s var(--ease);
+  cursor: pointer;
+}
+
+.inv-slot:hover {
+  border-color: var(--line-hi);
+  background:
+    linear-gradient(158deg, rgba(220,228,222,.08), rgba(220,228,222,.02) 46%),
+    var(--raised);
+}
+
+/* the faint cross in an empty slot, so it reads as a place for something */
+.inv-slot-mark {
+  width: 16px; height: 16px;
+  opacity: .12;
+  background:
+    linear-gradient(to right, transparent 45%, var(--chrome-mid) 45%, var(--chrome-mid) 55%, transparent 55%),
+    linear-gradient(to bottom, transparent 45%, var(--chrome-mid) 45%, var(--chrome-mid) 55%, transparent 55%);
+  pointer-events: none;
+}
+
+.inv-slot:hover .inv-slot-mark { opacity: .25; }
+
+/* the hotbar slots are the ones your number keys reach */
+.inv-slot.is-hotbar {
+  border-color: rgba(201,162,39,.26);
+  background:
+    linear-gradient(158deg, rgba(201,162,39,.07), rgba(201,162,39,.015) 46%),
+    var(--panel);
+}
+
+.inv-slot.is-hotbar:hover { border-color: rgba(201,162,39,.5); }
+
+.inv-slot-key {
+  position: absolute; top: 6px; left: 8px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; font-weight: 600;
+  color: var(--gold);
+  opacity: .75;
+}
+
+.inv-slot:not(.is-hotbar) .inv-slot-key { color: var(--chrome-lo); }
+
+.inv-slot.has-item {
+  background:
+    linear-gradient(158deg, rgba(220,228,222,.09), rgba(220,228,222,.025) 46%),
+    var(--raised);
+  border-color: var(--line-hi);
+}
+
+.inv-slot.has-item:hover { transform: translateY(-2px); border-color: rgba(201,162,39,.5); }
+
+.inv-slot img {
+  width: 60%; height: 60%;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 6px rgba(0,0,0,.5));
+  /* lifted, so the name below it is not sitting on the artwork */
+  margin-bottom: 12px;
+}
+
+/* the weight bar earns its colour as it fills.
+   The wrapper holds the bar and the reading side by side; the track is the
+   element the JS toggles state on. */
+.inv-weight { flex: 1; display: flex; align-items: center; gap: 14px; }
+
+.inv-weight-bar {
+  flex: 1;
+  height: 5px;
+  background: rgba(220,228,222,.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.inv-weight-bar i {
+  display: block; height: 100%; width: 0;
+  background: linear-gradient(90deg, var(--emerald-dim), var(--emerald));
+  border-radius: 99px;
+  transition: width .3s var(--ease), background .3s var(--ease);
+}
+
+.inv-weight-bar.is-heavy i { background: linear-gradient(90deg, #A8760F, var(--gold)); }
+
+.inv-weight-bar.is-full i  { background: linear-gradient(90deg, #8A1E14, var(--danger)); }
+
+.inv-weight-text {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: .1em;
+  color: var(--ash);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* the divider between hotbar and the rest */
+.inv-section {
+  display: flex; align-items: center; gap: 12px;
+  margin: 4px 0 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--chrome-lo);
+}
+
+.inv-section::after {
+  content: ''; flex: 1; height: 1px;
+  background: linear-gradient(90deg, var(--line-hi), transparent);
+}
+
+.rank-hero-body { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+
+/* ── splitting a stack ─────────────────────────────────── */
+/* Appears where the drag ended, so the answer is next to the question rather
+   than in the middle of the screen. */
+
+.split {
+  position: absolute; z-index: 30;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, var(--raised-hi), var(--panel));
+  border: 1px solid rgba(201,162,39,.42);
+  border-radius: var(--r-md);
+  box-shadow: 0 20px 44px -14px rgba(0,0,0,.9), inset 0 1px 0 rgba(220,228,222,.08);
+  animation: rise .16s var(--ease) both;
+}
+
+.split.hidden { display: none; }
+
+.split-label {
+  display: block; margin-bottom: 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--gold);
+}
+
+.split-row { display: flex; align-items: center; gap: 6px; }
+
+.split-row + .split-row { margin-top: 9px; }
+
+.split-step {
+  padding: 7px 10px;
+  min-width: 38px;
+  background: var(--panel);
+  border: 1px solid var(--line-hi);
+  border-radius: var(--r-sm);
+  color: var(--chrome-mid);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; font-weight: 600;
+  cursor: pointer;
+  transition: all .14s var(--ease);
+}
+
+.split-step:hover { border-color: rgba(201,162,39,.5); color: var(--bone); }
+
+#splitAmount {
+  width: 74px; padding: 7px 10px;
+  background: var(--ink);
+  border: 1px solid rgba(201,162,39,.4);
+  border-radius: var(--r-sm);
+  color: var(--bone);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 17px; font-weight: 700; text-align: center;
+}
+
+#splitAmount:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+
+#splitGo { padding: 7px 18px; font-size: 12px; }
+
+/* the slot being split from, while the box is open */
+.inv-slot.is-splitting {
+  border-color: rgba(201,162,39,.7);
+  box-shadow: inset 0 0 0 1px rgba(242,208,107,.3);
+}
+
+/* ── slot menu ─────────────────────────────────────────── */
+/* Right-click a slot: pick an amount, then say what to do with it. The
+   amount comes first because every action below it needs one. */
+
+.ctx {
+  position: absolute; z-index: 40;
+  width: 236px;
+  padding: 14px;
+  background: linear-gradient(180deg, var(--raised-hi), var(--panel));
+  border: 1px solid rgba(201,162,39,.42);
+  border-radius: var(--r-md);
+  box-shadow: 0 22px 48px -14px rgba(0,0,0,.92), inset 0 1px 0 rgba(220,228,222,.08);
+  animation: rise .14s var(--ease) both;
+}
+
+.ctx.hidden { display: none; }
+
+.ctx-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; padding-bottom: 11px; margin-bottom: 11px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ctx-name {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 15px; font-weight: 600; color: var(--bone);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.ctx-have {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; color: var(--gold); white-space: nowrap;
+}
+
+/* A slider, not a squeezed number field. Five buttons and an input crammed
+   into 236px left the input two characters wide -- a slider gives the whole
+   width to the one thing being chosen, and the number reads out beside it. */
+.ctx-amount { display: flex; align-items: center; gap: 12px; margin-bottom: 9px; }
+
+#ctxSlider {
+  flex: 1; min-width: 0;
+  height: 4px;
+  appearance: none; -webkit-appearance: none;
+  background: rgba(220,228,222,.12);
+  border-radius: 99px;
+  outline: none;
+  cursor: pointer;
+}
+
+#ctxSlider::-webkit-slider-thumb {
+  appearance: none; -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--gold-hot), var(--gold));
+  border: 2px solid var(--ink);
+  box-shadow: 0 0 10px rgba(201,162,39,.55);
+  cursor: grab;
+}
+
+#ctxSlider::-webkit-slider-thumb:active { cursor: grabbing; }
+
+#ctxSlider:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+
+.ctx-value {
+  width: 56px; min-width: 0;
+  padding: 5px 8px;
+  background: var(--ink);
+  border: 1px solid rgba(201,162,39,.4);
+  border-radius: var(--r-sm);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 17px; font-weight: 700; text-align: center;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+
+.ctx-value:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(201,162,39,.2);
+}
+
+.ctx-value::-webkit-outer-spin-button,
+.ctx-value::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.ctx-quick { display: flex; gap: 5px; margin-bottom: 12px; }
+
+.ctx-chip {
+  flex: 1;
+  padding: 5px 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  color: var(--chrome-mid);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .1em;
+  cursor: pointer;
+  transition: all .14s var(--ease);
+}
+
+.ctx-chip:hover { border-color: rgba(201,162,39,.5); color: var(--bone); }
+
+.ctx-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+.ctx-btn.ctx-wide { grid-column: span 2; }
+
+.ctx-btn {
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line-hi);
+  border-radius: var(--r-sm);
+  color: var(--chrome-mid);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 12.5px; font-weight: 600;
+  letter-spacing: .04em; text-transform: uppercase;
+  cursor: pointer;
+  transition: all .15s var(--ease);
+}
+
+.ctx-btn:hover { background: var(--raised); color: var(--bone); border-color: rgba(201,162,39,.5); }
+
+.ctx-btn:disabled { opacity: .32; cursor: not-allowed; }
+
+.ctx-btn:disabled:hover { background: var(--panel); color: var(--chrome-mid); border-color: var(--line-hi); }
+
+.ctx-btn.is-quiet { grid-column: span 2; border-color: transparent; font-size: 11px; }
+
+.ctx-btn.is-quiet:hover { border-color: rgba(228,72,60,.4); color: var(--danger); }
+
+.ctx-targets { margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--line); }
+
+.ctx-sub {
+  display: block; margin-bottom: 7px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--chrome-lo);
+}
+
+.ctx-target {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 8px 11px; margin-bottom: 4px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--bone);
+  font-size: 12.5px; text-align: left;
+  cursor: pointer;
+  transition: all .14s var(--ease);
+}
+
+.ctx-target:hover { border-color: rgba(22,228,95,.5); background: rgba(22,228,95,.08); }
+
+.ctx-target small { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--ash); }
+
+/* ── stop animating what nobody is looking at ──────────── */
+/*
+   A hidden panel is display:none, so its animations stop -- but the badge
+   sparkle, the halo and the drifting motes sit inside panels that are only
+   OPACITY-hidden or off-screen, and those keep the compositor working for
+   nothing.
+
+   FiveM runs the interface in Chromium alongside the game. Anything painting
+   in there is taking frames off the game, whether or not you can see it.
+*/
+
+#rankedRoot.hidden *,
+#pRoot.hidden *,
+#shopRoot.hidden *,
+#invRoot.hidden * {
+  animation-play-state: paused !important;
+}
+
+/* Panels not currently on top aren't visible either. */
+.ppanel:not(.is-active) .badge .spark,
+.ppanel:not(.is-active) .badge .sheen,
+.ppanel:not(.is-active) .badge .halo,
+.rkpanel:not(.is-active) .badge .spark,
+.rkpanel:not(.is-active) .badge .sheen,
+.rkpanel:not(.is-active) .badge .halo {
+  animation-play-state: paused;
+}
+
+/* Tell the compositor which layers actually move, so it doesn't repaint the
+   whole panel for a sparkle in one corner. */
+.badge .spark, .badge .sheen, .badge .halo,
+.rank-hero::before,
+.meter i, .inv-weight-bar i {
+  will-change: transform, opacity;
+}
+
+/* ── choosing where you'll fight ────────────────────────── */
+
+.arena-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.arena-chip {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 11px 13px;
+  background: linear-gradient(158deg, rgba(220,228,222,.045), rgba(220,228,222,.012) 42%), var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  text-align: left;
+  cursor: pointer;
+  transition: all .16s var(--ease);
+}
+
+.arena-chip:hover { border-color: var(--line-hi); transform: translateY(-1px); }
+
+.arena-chip.is-on {
+  border-color: rgba(22,228,95,.45);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(22,228,95,.14), transparent 62%),
+    var(--raised-hi);
+  box-shadow: inset 0 1px 0 rgba(22,228,95,.18);
+}
+
+.arena-chip-name {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 13.5px; font-weight: 600;
+  color: var(--chrome-mid);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.arena-chip.is-on .arena-chip-name { color: var(--bone); }
+
+.arena-chip-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9.5px; letter-spacing: .08em;
+  color: var(--chrome-lo);
+}
+
+.arena-chip.is-on .arena-chip-sub { color: var(--emerald); }
+
+/* ── match found ───────────────────────────────────────── */
+/* An announcement, not a question. You joined the queue -- that was the
+   agreement, and asking again only ever costs matches. */
+
+.found-card {
+  width: min(420px, 88vw);
+  padding: 34px 40px 30px;
+  text-align: center;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(22,228,95,.14), transparent 60%),
+    linear-gradient(180deg, var(--raised) 0%, var(--panel) 40%, var(--ink) 100%);
+  border-radius: var(--r-lg);
+  box-shadow:
+    0 0 0 1px rgba(22,228,95,.34),
+    0 40px 90px -24px rgba(0,0,0,.92),
+    inset 0 1px 0 rgba(220,228,222,.08);
+  animation: rise .3s var(--ease) both;
+}
+
+.found-eyebrow {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: .34em; text-transform: uppercase;
+  color: var(--emerald);
+}
+
+.found-mode {
+  display: block; margin: 10px 0 20px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 48px; font-weight: 700; line-height: 1;
+  color: var(--bone);
+  text-shadow: 0 0 26px rgba(22,228,95,.3);
+}
+
+.found-bar {
+  height: 4px;
+  background: rgba(220,228,222,.1);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.found-bar i {
+  display: block; height: 100%; width: 100%;
+  background: linear-gradient(90deg, var(--emerald-dim), var(--emerald));
+  transform-origin: left;
+}
+
+.found-note {
+  display: block; margin-top: 14px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--ash);
+}
+
+/* ── the cart ──────────────────────────────────────────── */
+/* Sits at the bottom of the shop and only exists once you've put something
+   in it. Buying is all or nothing, so the total and what's wrong with it are
+   both visible before you commit. */
+
+.shop-stage { display: flex; flex-direction: column; }
+
+.shop-stage .shop-grid { flex: 1; align-content: start; }
+
+.cart {
+  margin-top: 18px;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, var(--raised-hi), var(--panel));
+  border: 1px solid rgba(201,162,39,.4);
+  border-radius: var(--r-md);
+  box-shadow: 0 -10px 30px -18px rgba(0,0,0,.9);
+  animation: rise .18s var(--ease) both;
+}
+
+.cart.hidden { display: none; }
+
+.cart-lines {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 148px; overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.cart-lines::-webkit-scrollbar { width: 6px; }
+
+.cart-lines::-webkit-scrollbar-thumb {
+  background: rgba(220,228,222,.14); border-radius: 99px;
+}
+
+.cart-line {
+  display: grid; grid-template-columns: 1fr auto auto auto;
+  align-items: center; gap: 10px;
+  padding: 6px 4px 6px 10px;
+  background: rgba(220,228,222,.035);
+  border-radius: var(--r-sm);
+  font-size: 12.5px;
+}
+
+.cart-line-name { color: var(--bone); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.cart-qty { display: flex; align-items: center; gap: 5px; }
+
+.cart-qty button {
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  background: var(--panel);
+  border: 1px solid var(--line-hi);
+  border-radius: 50%;
+  color: var(--chrome-mid);
+  font-size: 13px; line-height: 1;
+  cursor: pointer;
+  transition: all .14s var(--ease);
+}
+
+.cart-qty button:hover { border-color: rgba(201,162,39,.5); color: var(--bone); }
+
+.cart-qty input {
+  width: 44px;
+  padding: 3px 4px;
+  background: var(--ink);
+  border: 1px solid var(--line-hi);
+  border-radius: var(--r-sm);
+  color: var(--bone);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 14px; font-weight: 700; text-align: center;
+  -moz-appearance: textfield;
+}
+
+.cart-qty input:focus {
+  outline: none;
+  border-color: rgba(201,162,39,.6);
+  box-shadow: 0 0 0 2px rgba(201,162,39,.16);
+}
+
+/* The browser's own spinners sit on top of our own buttons and do the same
+   job worse. */
+.cart-qty input::-webkit-outer-spin-button,
+.cart-qty input::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+
+.cart-line-price {
+  min-width: 54px; text-align: right;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px; color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.cart-drop {
+  width: 22px; height: 22px;
+  background: transparent; border: 0; border-radius: 50%;
+  color: var(--chrome-lo); font-size: 14px; line-height: 1;
+  cursor: pointer;
+}
+
+.cart-drop:hover { color: var(--danger); }
+
+.cart-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.cart-total { display: flex; align-items: baseline; gap: 10px; }
+
+.cart-total-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ash);
+}
+
+.cart-total-value {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 26px; font-weight: 700; color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.cart-total-value.cant { color: var(--danger); }
+
+.cart-actions { display: flex; align-items: center; gap: 8px; }
+
+.cart-actions .btn { padding: 9px 20px; font-size: 13px; }
+
+.cart-actions .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.cart-warn {
+  margin-top: 9px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; color: var(--danger);
+}
+
+.cart-warn.hidden { display: none; }
+
+/* how many of a thing you've already got queued up */
+.shop-item { position: relative; }
+
+.cart-badge {
+  position: absolute; top: 7px; right: 7px;
+  min-width: 20px; padding: 2px 6px;
+  background: var(--gold);
+  border-radius: 999px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 11px; font-weight: 700;
+  color: #100C02;
+}
+
+/* ── wagers ────────────────────────────────────────────── */
+
+.wager-pick {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 10px;
+}
+
+.wager-chip {
+  padding: 9px 16px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--chrome-mid);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: all .16s var(--ease);
+}
+
+.wager-chip:hover { border-color: var(--line-hi); color: var(--bone); }
+
+.wager-chip.is-on {
+  border-color: rgba(201,162,39,.55);
+  background: linear-gradient(180deg, rgba(201,162,39,.16), rgba(201,162,39,.04));
+  color: var(--gold);
+}
+
+/* one you cannot cover -- still visible, so you know what you are saving for */
+.wager-chip.cant { opacity: .38; }
+
+.wager-chip.cant:hover { border-color: rgba(228,72,60,.45); color: var(--danger); }
+
+/* ── the control panel ─────────────────────────────────── */
+
+.ctrl-card {
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  background: linear-gradient(158deg, rgba(220,228,222,.045), rgba(220,228,222,.012) 42%), var(--raised);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line-hi);
+  border-radius: var(--r-md);
+}
+
+.ctrl-card.is-hot { border-left-color: var(--danger); }
+
+.ctrl-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 14px; margin-bottom: 10px;
+}
+
+.ctrl-title {
+  display: block;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 16px; font-weight: 600; color: var(--bone);
+}
+
+.ctrl-sub {
+  display: block; margin-top: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px; color: var(--ash);
+}
+
+.ctrl-score {
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 22px; font-weight: 700; color: var(--gold);
+  white-space: nowrap;
+}
+
+.ctrl-players { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+
+.ctrl-player {
+  padding: 4px 10px;
+  background: rgba(220,228,222,.05);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 12px; color: var(--bone);
+}
+
+.ctrl-player small {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; color: var(--ash); margin-left: 5px;
+}
+
+.ctrl-player.team-A { border-color: rgba(124,192,240,.4); }
+
+.ctrl-player.team-B { border-color: rgba(232,184,56,.4); }
+
+.ctrl-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ── people ── */
+.ctrl-person {
+  display: grid;
+  grid-template-columns: 1fr 78px auto auto;
+  align-items: center; gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 6px;
+  background: linear-gradient(158deg, rgba(220,228,222,.04), rgba(220,228,222,.01) 42%), var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.ctrl-person-name {
+  display: block;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 14px; font-weight: 600; color: var(--bone);
+}
+
+.ctrl-person-where {
+  display: block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .08em; color: var(--ash);
+}
+
+.ctrl-person-coins {
+  text-align: right;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 17px; font-weight: 700; color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.ctrl-give { display: flex; align-items: center; gap: 5px; }
+
+.ctrl-give input {
+  width: 74px; padding: 6px 8px;
+  background: var(--ink);
+  border: 1px solid var(--line-hi);
+  border-radius: var(--r-sm);
+  color: var(--bone);
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 13px; font-weight: 700; text-align: center;
+  -moz-appearance: textfield;
+}
+
+.ctrl-give input:focus { outline: none; border-color: rgba(201,162,39,.6); }
+
+.ctrl-give input::-webkit-outer-spin-button,
+.ctrl-give input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+
+
+/* ============================================================
+   "YOU RECEIVED" CARDS
+   ============================================================
+   Bottom centre, stacked upward, sitting just above the hotbar so the two
+   never overlap. Top level and position:fixed for the same reason the hotbar
+   is -- anything parented to #aHud is invisible outside a match, and these
+   fire in the lobby, the shop and the Red Zone as well. */
+#itemToasts {
+  position: fixed;
+  bottom: 96px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column-reverse;
+  align-items: center; gap: 6px;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.itoast {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px 8px 10px;
+  min-width: 190px;
+  background: linear-gradient(180deg, rgba(20,28,23,.94), rgba(8,12,9,.96));
+  border: 1px solid var(--line-hi);
+  border-left: 2px solid var(--gold);
+  border-radius: 4px;
+  box-shadow: 0 6px 22px rgba(0,0,0,.55);
+
+  /* Starts low and faded, settles into place. Removed by the same class
+     going back on, so one transition covers arriving and leaving. */
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .18s ease, transform .22s cubic-bezier(.16,.9,.3,1);
+}
+
+.itoast.in { opacity: 1; transform: translateY(0); }
+
+.itoast-img {
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  background: rgba(201,162,39,.07);
+  border: 1px solid rgba(201,162,39,.18);
+  border-radius: 3px;
+  flex: 0 0 auto;
+}
+
+.itoast-img img {
+  max-width: 30px; max-height: 30px;
+  object-fit: contain;
+}
+
+.itoast-text { display: flex; flex-direction: column; gap: 1px; }
+
+.itoast-label {
+  font-size: 12.5px; font-weight: 600;
+  color: var(--chrome-hi);
+  letter-spacing: .2px;
+}
+
+.itoast-sub {
+  font-size: 10px; font-weight: 600;
+  color: var(--chrome-lo);
+  letter-spacing: 1.4px; text-transform: uppercase;
+}
+
+.itoast-count {
+  margin-left: auto; padding-left: 10px;
+  font-size: 15px; font-weight: 700;
+  color: var(--gold-hot);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   WORLD LAYER -- interaction bubbles and podium labels
+   ============================================================
+   A full-screen, click-through layer that things get positioned inside. The
+   client hands over a screen coordinate as a 0-1 fraction, so this works at
+   any resolution without knowing what it is. */
+#worldLayer {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 7;
+  overflow: hidden;
+}
+
+/* ---- the interaction bubble ---- */
+
+#prompt3d {
+  position: absolute;
+  /* left/top are set from script; the translate centres it on the point and
+     lifts it clear so the tail lands on the ped rather than in it. */
+  transform: translate(-50%, -100%);
+  display: flex; flex-direction: column; align-items: center;
+
+  /* Short, so following the camera looks smooth rather than stepped, but not
+     so long that it lags behind when you turn quickly. */
+  transition: opacity .12s ease;
+}
+
+#prompt3d.hidden { display: none; }
+
+.p3-body {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 9px 14px;
+  background: linear-gradient(180deg, rgba(18,25,20,.95), rgba(7,11,8,.97));
+  border: 1px solid var(--line-hi);
+  border-radius: 8px;
+  box-shadow: 0 8px 26px rgba(0,0,0,.6);
+  white-space: nowrap;
+}
+
+.p3-title {
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--gold);
+  text-align: center;
+}
+
+.p3-title:empty { display: none; }
+
+.p3-rows { display: flex; flex-direction: column; gap: 5px; }
+
+.p3-row { display: flex; align-items: center; gap: 9px; }
+
+/* The key chip. Fixed minimum width so E and BACKSPACE line up in a column
+   rather than the labels stepping in and out. */
+.p3-key {
+  min-width: 22px; height: 22px;
+  padding: 0 6px;
+  display: grid; place-items: center;
+  background: linear-gradient(180deg, var(--gold), var(--gold-dim));
+  color: #10130E;
+  border-radius: 4px;
+  font-size: 11px; font-weight: 800;
+  letter-spacing: .5px;
+  box-shadow: 0 1px 0 rgba(0,0,0,.45);
+  flex: 0 0 auto;
+}
+
+.p3-label {
+  font-size: 13px; font-weight: 600;
+  color: var(--chrome-hi);
+  letter-spacing: .2px;
+}
+
+/* The tail. A rotated square with two of its borders showing reads as a
+   pointer and keeps the same border and gradient as the body, which a
+   border-triangle cannot do. */
+.p3-tail {
+  width: 11px; height: 11px;
+  margin-top: -6px;
+  background: rgba(7,11,8,.97);
+  border-right: 1px solid var(--line-hi);
+  border-bottom: 1px solid var(--line-hi);
+  transform: rotate(45deg);
+}
+
+/* ---- podium labels ---- */
+
+.pod-label {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  white-space: nowrap;
+}
+
+.pod-rank {
+  min-width: 26px; padding: 1px 8px;
+  display: grid; place-items: center;
+  border-radius: 3px;
+  font-size: 12px; font-weight: 800;
+  letter-spacing: .5px;
+  color: #10130E;
+  background: var(--chrome-mid);
+  box-shadow: 0 2px 8px rgba(0,0,0,.5);
+}
+
+/* First gold, second silver, third bronze -- the ranking is readable at a
+   glance from across the lobby, before any of the text is. */
+.pod-label[data-rank="1"] .pod-rank { background: linear-gradient(180deg,#F2D06B,#C9A227); }
+.pod-label[data-rank="2"] .pod-rank { background: linear-gradient(180deg,#E4EAE6,#9AA69E); }
+.pod-label[data-rank="3"] .pod-rank { background: linear-gradient(180deg,#D89A5B,#8A5A2B); }
+
+.pod-name {
+  padding: 3px 10px;
+  background: rgba(7,11,8,.92);
+  border: 1px solid var(--line-hi);
+  border-radius: 5px;
+  font-size: 12px; font-weight: 600;
+  color: var(--chrome-hi);
+}
+
+.pod-score {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--gold);
+}
+
+.pod-score:empty { display: none; }
+
+/* Selected but put away. Still the weapon you would draw, so the slot keeps
+   its highlight -- just dimmed, so an empty hand reads as a choice rather
+   than the hotbar having failed. */
+.hb-slot.is-holstered { opacity: .55; }
+.hb-slot.is-holstered img { filter: grayscale(1); }

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  /* The Red Zone's own interface: a kill counter, a feed, and the panel for
+     picking a zone. Deliberately close to the arena's look — they are the
+     same server and should feel like it — but this resource owns its own
+     styling so neither can break the other by being edited. */
+
+  :root {
+    --ink:     #060907;
+    --panel:   #0B120E;
+    --raised:  #111A15;
+    --line:    rgba(220,228,222,.10);
+    --line-hi: rgba(220,228,222,.20);
+    --bone:    #DCE4DE;
+    --ash:     #7C8B82;
+    --gold:    #C9A227;
+    --emerald: #16E45F;
+    --danger:  #E4483C;
+    --r-sm: 6px; --r-md: 10px; --r-lg: 16px;
+    --ease: cubic-bezier(.22,.61,.36,1);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0;
+      -webkit-user-select: none; user-select: none; }
+  input { -webkit-user-select: text; user-select: text; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: transparent;
+    font-family: 'Chakra Petch', sans-serif;
+    color: var(--bone);
+  }
+
+  .hidden { display: none !important; }
+
+  /* ── the counter ── */
+  .hud {
+    position: absolute; top: 22px; left: 24px;
+    padding: 9px 16px 10px;
+    background: linear-gradient(180deg, rgba(24,14,14,.86), rgba(8,12,9,.9));
+    border: 1px solid rgba(228,72,60,.4);
+    border-left: 3px solid var(--danger);
+    border-radius: var(--r-md);
+    z-index: 2;
+  }
+  .hud-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px; letter-spacing: .3em; text-transform: uppercase;
+    color: #FF9E92;
+  }
+  .hud-zone { font-size: 11px; color: var(--ash); margin-left: 8px; }
+  .hud-main { display: flex; align-items: baseline; gap: 8px; margin-top: 3px; }
+  .hud-kills { font-size: 30px; font-weight: 700; line-height: 1; }
+  .hud-word {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--ash);
+  }
+  .hud-streak {
+    margin-left: 6px; padding: 2px 9px;
+    background: rgba(201,162,39,.18);
+    border: 1px solid rgba(201,162,39,.45);
+    border-radius: 999px;
+    font-size: 11px; font-weight: 700; color: var(--gold);
+  }
+
+  /* ── the feed ── */
+  .feed {
+    position: absolute; top: 112px; left: 24px;
+    display: flex; flex-direction: column; gap: 3px;
+    max-width: 320px;
+    z-index: 2;
+  }
+  .feed-line {
+    padding: 5px 11px;
+    background: rgba(8,12,9,.78);
+    border-radius: var(--r-sm);
+    font-size: 12.5px;
+    animation: slide .2s var(--ease) both;
+  }
+  .feed-line b { color: var(--bone); font-weight: 600; }
+  .feed-line span { color: var(--ash); margin: 0 5px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+    letter-spacing: .1em; text-transform: uppercase; }
+  .feed-line.mine { border-left: 2px solid var(--emerald); }
+  .feed-line.dead { border-left: 2px solid var(--danger); }
+
+  @keyframes slide { from { opacity:0; transform: translateX(-8px); } }
+
+  /* The death card is gone on purpose.
+     There is no .died / .died-word / .died-bar rule left, and nothing in the
+     script sends rzDied or rzAlive any more. The hold on the ped -- frozen,
+     invisible, no collision for Config.RZ.down.delay -- still happens; it is
+     just no longer drawn. If a death screen is ever wanted again it belongs
+     to whatever owns the down state, not to this file. */
+
+  /* ── picking a zone ── */
+  .modal { position: absolute; inset: 0; display: grid; place-items: center;
+           background: rgba(3,5,4,.62); z-index: 10; }
+  .console {
+    width: min(880px, 92vw); max-height: 82vh;
+    display: flex; flex-direction: column;
+    background: linear-gradient(180deg, var(--panel), var(--ink));
+    border-radius: var(--r-lg);
+    box-shadow: 0 0 0 1px var(--line-hi), 0 40px 90px -24px rgba(0,0,0,.9);
+    overflow: hidden;
+    animation: rise .22s var(--ease) both;
+  }
+  @keyframes rise { from { opacity:0; transform: translateY(10px); } }
+
+  .head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 26px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .eyebrow {
+    display: block;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; letter-spacing: .32em; text-transform: uppercase;
+    color: var(--gold);
+  }
+  .title { font-size: 30px; font-weight: 700; margin-top: 4px; }
+
+  .body { padding: 22px 26px; overflow-y: auto; }
+  .lead { font-size: 13px; color: var(--ash); margin-bottom: 16px; line-height: 1.55; }
+
+  .zones { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .zone {
+    padding: 16px;
+    background: linear-gradient(158deg, rgba(220,228,222,.05), rgba(220,228,222,.012) 44%), var(--raised);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    text-align: left;
+    transition: all .16s var(--ease);
+  }
+  .zone:hover { border-color: var(--line-hi); transform: translateY(-2px); }
+  .zone.is-here { border-color: rgba(22,228,95,.5); }
+  .zone-name { display: block; font-size: 16px; font-weight: 600; }
+  .zone-meta {
+    display: block; margin-top: 3px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px; letter-spacing: .1em; color: var(--ash);
+  }
+  .zone.is-hot .zone-meta { color: var(--emerald); }
+
+  .empty { padding: 26px; text-align: center; color: var(--ash); font-size: 14px; }
+
+  .foot {
+    display: flex; gap: 8px; justify-content: flex-end;
+    padding: 16px 26px;
+    border-top: 1px solid var(--line);
+  }
+  .btn {
+    padding: 10px 20px;
+    border: 1px solid var(--line-hi);
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--bone);
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    transition: all .16s var(--ease);
+  }
+  .btn:hover { border-color: var(--bone); }
+  .btn-danger { border-color: rgba(228,72,60,.5); color: #FF9E92; }
+</style>
+</head>
+<body>
+
+<div class="hud hidden" id="hud">
+  <span class="hud-label">Red Zone</span>
+  <span class="hud-zone" id="hudZone"></span>
+  <div class="hud-main">
+    <span class="hud-kills" id="hudKills">0</span>
+    <span class="hud-word">kills</span>
+    <span class="hud-streak hidden" id="hudStreak"></span>
+  </div>
+</div>
+
+<div class="feed" id="feed"></div>
+
+<div class="modal hidden" id="panel">
+  <div class="console">
+    <div class="head">
+      <div>
+        <span class="eyebrow">NAIJA 2046 · FREE FOR ALL</span>
+        <div class="title">Red Zone</div>
+      </div>
+    </div>
+    <div class="body">
+      <p class="lead">
+        Always running. You're dropped just outside with everything you own &mdash;
+        walk in when you're ready. Switching zones is one click.
+      </p>
+      <div class="zones" id="zones"></div>
+    </div>
+    <div class="foot">
+      <button class="btn btn-danger hidden" id="leaveBtn">Back to the lobby</button>
+      <button class="btn" id="closeBtn">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const esc = s => String(s ?? '').replace(/[&<>"']/g,
+    c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+  const RES = 'tenx-redzone';
+  const el = id => document.getElementById(id);
+  const post = (name, body = {}) =>
+    fetch(`https://${RES}/${name}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+      body: JSON.stringify(body)
+    }).catch(() => {});
+
+  let inZone = null;
+  let feed = [];
+
+  /* Write only when the value differs. A write that changes nothing still
+     invalidates layout, and the counter updates on every kill. */
+  function put(id, v) {
+    const e = el(id);
+    if (!e) return;
+    const s = String(v ?? '');
+    if (e.textContent !== s) e.textContent = s;
+  }
+
+  function showHud(d) {
+    el('hud').classList.remove('hidden');
+    if (d.zone !== undefined) put('hudZone', d.zone || '');
+    if (d.kills !== undefined) put('hudKills', d.kills);
+
+    const st = el('hudStreak');
+    if (d.streak && d.streak > 1) {
+      put('hudStreak', `${d.streak} streak`);
+      st.classList.remove('hidden');
+    } else {
+      st.classList.add('hidden');
+    }
+  }
+
+  /* The feed keeps the last five and rebuilds only when it changes, which is
+     once per kill rather than on a timer. */
+  function pushFeed(html, cls) {
+    feed.unshift({ html, cls });
+    feed = feed.slice(0, 5);
+
+    el('feed').innerHTML = feed.map(f =>
+      `<div class="feed-line ${f.cls || ''}">${f.html}</div>`).join('');
+
+    setTimeout(() => {
+      feed.pop();
+      el('feed').innerHTML = feed.map(f =>
+        `<div class="feed-line ${f.cls || ''}">${f.html}</div>`).join('');
+    }, 7000);
+  }
+
+  function renderZones(data) {
+    inZone = data.inZone ?? null;
+    const zones = data.zones || [];
+
+    el('leaveBtn').classList.toggle('hidden', inZone === null);
+
+    el('zones').innerHTML = zones.length
+      ? zones.map(z => `
+          <button class="zone ${z.id === inZone ? 'is-here' : ''} ${z.players ? 'is-hot' : ''}"
+                  data-zone="${z.id}">
+            <span class="zone-name">${esc(z.name)}</span>
+            <span class="zone-meta">${z.id === inZone ? 'you are here'
+              : (z.players ? `${z.players} fighting` : 'empty')}</span>
+          </button>`).join('')
+      : `<p class="empty">No zones are ready yet.<br><br>
+         An arena needs a boundary <em>and</em> at least one Red Zone spawn
+         before it shows up here.</p>`;
+  }
+
+  document.addEventListener('click', e => {
+    const z = e.target.closest('[data-zone]');
+    if (z) return post('rzEnter', { id: Number(z.dataset.zone) });
+
+    if (e.target.id === 'leaveBtn') return post('rzLeave');
+    if (e.target.id === 'closeBtn') return post('rzClose');
+  });
+
+  window.addEventListener('message', ev => {
+    const d = ev.data || {};
+
+    if (d.action === 'rzShow') return showHud(d.data || {});
+
+    if (d.action === 'rzHide') {
+      el('hud').classList.add('hidden');
+      el('feed').innerHTML = '';
+      feed = [];
+      return;
+    }
+
+    if (d.action === 'rzKill') {
+      const k = d.data || {};
+      let line = `<b>You</b><span>killed</span><b>${esc(k.victim)}</b>`;
+      if (k.coins) line += `<span>+${k.coins}</span>`;
+      pushFeed(line, 'mine');
+      return;
+    }
+
+    if (d.action === 'rzFeed') {
+      const f = d.data || {};
+      pushFeed(`<b>${esc(f.killer)}</b><span>killed</span><b>${esc(f.victim)}</b>`);
+      return;
+    }
+
+    /* rzDied and rzAlive used to be handled here. Both are gone with the
+       death card, and the client no longer sends either -- a handler kept
+       for a message nobody sends is the kind of thing that gets read as a
+       live feature two months later. */
+
+    if (d.action === 'rzOpen') {
+      renderZones(d.data || {});
+      el('panel').classList.remove('hidden');
+      return;
+    }
+
+    if (d.action === 'rzClose') {
+      el('panel').classList.add('hidden');
+    }
+  });
+</script>
+</body>
+</html>

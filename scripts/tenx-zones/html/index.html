@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tenx-zones</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ INSTRUMENT RAIL ============ -->
+<aside id="rail" hidden>
+
+  <header class="rail-head">
+    <div>
+      <h1>Zones</h1>
+      <p id="count">no zones yet</p>
+    </div>
+    <button id="close" class="icon" title="Close">&#215;</button>
+  </header>
+
+  <div class="make">
+    <button class="make-btn" data-mode="sphere">
+      <span class="glyph dome" aria-hidden="true"></span>
+      <span>
+        <strong>Dome</strong>
+        <em>walk to the middle, scroll to size</em>
+      </span>
+    </button>
+    <button class="make-btn" data-mode="poly">
+      <span class="glyph walls" aria-hidden="true"></span>
+      <span>
+        <strong>Walls</strong>
+        <em>walk the corners, any shape</em>
+      </span>
+    </button>
+  </div>
+
+  <div id="list" class="list"></div>
+
+  <div id="empty" class="empty">
+    <p>Nothing marked out yet.</p>
+    <p>Pick a shape above and fly to where you want it.</p>
+  </div>
+
+</aside>
+
+
+<!-- ============ EDIT FORM ============ -->
+<section id="form" hidden>
+  <header class="form-head">
+    <h2 id="form-title">Name this zone</h2>
+    <button id="form-back" class="ghost">Keep shaping</button>
+  </header>
+
+  <label class="field">
+    <span>Name</span>
+    <input id="f-name" type="text" maxlength="48" placeholder="Arena Alpha">
+  </label>
+
+  <div class="split" id="f-sphere-row">
+    <label class="field">
+      <span>Radius</span>
+      <input id="f-radius" type="number" step="0.5" min="5" max="600">
+    </label>
+  </div>
+
+  <div class="split" id="f-poly-row">
+    <label class="field">
+      <span>Floor</span>
+      <input id="f-minz" type="number" step="0.5">
+    </label>
+    <label class="field">
+      <span>Ceiling</span>
+      <input id="f-maxz" type="number" step="0.5">
+    </label>
+  </div>
+
+  <div class="toggle-row">
+    <button id="f-solid" class="toggle" data-on="true">
+      <span class="pip"></span>
+      <span class="toggle-copy">
+        <strong id="f-solid-label">Players cannot leave</strong>
+        <em id="f-solid-sub">They get pushed back at the edge</em>
+      </span>
+    </button>
+  </div>
+
+  <div class="swatches" id="f-colors"></div>
+
+  <div class="tagfield">
+    <span>Tags</span>
+    <div id="f-tags" class="taglist"></div>
+    <input id="f-tagadd" type="text" maxlength="24" placeholder="add a tag, Enter to confirm">
+  </div>
+
+  <div class="form-actions">
+    <button id="f-discard" class="ghost">Discard</button>
+    <button id="f-save" class="primary">Save zone</button>
+  </div>
+</section>
+
+
+<!-- ============ DRAFT READOUT ============ -->
+<div id="readout" hidden>
+  <div class="metric">
+    <span id="metric-value">40.0</span>
+    <span id="metric-unit">m</span>
+  </div>
+  <p id="metric-label">radius</p>
+</div>
+
+
+<!-- ============ KEYSTRIP ============ -->
+<div id="keys" hidden>
+  <span class="k"><b>W A S D</b>move</span>
+  <span class="k"><b>Space / Ctrl</b>up &amp; down</span>
+  <span class="k"><b>Shift</b>boost</span>
+  <span class="k"><b>1</b><i id="k-speed">1.2</i></span>
+  <span class="k" id="k-scroll"><b>Scroll</b>size</span>
+  <span class="k" id="k-lift"><b>Space / Ctrl</b>centre height</span>
+  <span class="k" id="k-mark"><b>E</b>mark point</span>
+  <span class="k" id="k-undo"><b>R</b>undo</span>
+  <span class="k"><b>F2</b>noclip</span>
+  <span class="k accept"><b>Enter</b>done</span>
+  <span class="k"><b>Esc</b>cancel</span>
+</div>
+
+
+<!-- ============ BOUNDARY WARNING ============ -->
+<div id="warning" hidden>
+  <div class="warn-bar"></div>
+  <div>
+    <strong id="warn-title">Boundary reached</strong>
+    <em id="warn-text">You cannot leave this zone</em>
+  </div>
+</div>
+
+
+<!-- ============ TOAST ============ -->
+<div id="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>

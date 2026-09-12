@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  /* ── asleep ──
+     Nothing is unmounted; nothing moves. A browser with nothing moving in it
+     costs nothing to composite. */
+  body.sleep *,
+  body.sleep *::before,
+  body.sleep *::after {
+    animation-play-state: paused !important;
+    transition: none !important;
+  }
+
+  /* What's happening right now, on a wall. This replaced floating text over
+     the ped -- text drawn in the world scales with distance, overlaps itself
+     and covers whatever is behind it. A board sits flat and stays readable. */
+
+  :root {
+    --gold:     #E8B838;
+    --gold-hot: #FFD86B;
+    --bone:     #E8EFEA;
+    --ash:      #8A9A90;
+    --emerald:  #16E45F;
+    --danger:   #E4483C;
+    --blue:     #7CC0F0;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    /* The size the design is built for.
+    
+       I dropped the DUI to 1024x512 for performance and then tried to scale
+       the page to fit it. Both attempts made the boards worse -- first
+       cropped, then letterboxed. The saving was small next to the DUI leak
+       that was the real cost, and it is not worth a board that looks wrong.
+    
+       Authored size, surface size, same number. */
+    width: 1280px; height: 640px;
+    overflow: hidden;
+    background: #000;
+    font-family: 'Chakra Petch', sans-serif;
+    color: var(--bone);
+  }
+
+  .frame {
+    position: relative;
+    width: 100%; height: 100%;
+    padding: 16px;
+    background: linear-gradient(180deg, #10161C 0%, #070B0F 100%);
+    border: 4px solid var(--gold);
+    border-radius: 22px;
+    box-shadow:
+      inset 0 0 60px rgba(232,184,56,.16),
+      inset 0 0 0 2px rgba(255,216,107,.30);
+  }
+
+  .inner {
+    position: relative;
+    width: 100%; height: 100%;
+    padding: 26px 34px 22px;
+    background:
+      radial-gradient(80% 50% at 50% 0%, rgba(232,184,56,.10), transparent 62%),
+      linear-gradient(180deg, #0B1219 0%, #060A0E 100%);
+    border-radius: 12px;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  header { text-align: center; margin-bottom: 20px; }
+  h1 {
+    font-size: 46px; font-weight: 700; letter-spacing: .05em;
+    color: var(--gold-hot);
+    text-shadow: 0 0 18px rgba(232,184,56,.55), 0 3px 0 rgba(0,0,0,.6);
+  }
+  .sub {
+    margin-top: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 15px; letter-spacing: .3em; text-transform: uppercase;
+    color: var(--ash);
+  }
+
+  .cols { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+
+  .col { display: flex; flex-direction: column; }
+  .col h2 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 15px; font-weight: 600;
+    letter-spacing: .26em; text-transform: uppercase;
+    color: var(--gold);
+    padding-bottom: 9px; margin-bottom: 10px;
+    border-bottom: 2px solid rgba(232,184,56,.34);
+  }
+
+  .rows { display: flex; flex-direction: column; gap: 5px; }
+
+  .row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 9px 14px;
+    background: rgba(232,184,56,.05);
+    border-left: 3px solid rgba(232,184,56,.35);
+    font-size: 25px;
+  }
+  .row.hot {
+    background: rgba(22,228,95,.10);
+    border-left-color: var(--emerald);
+  }
+  .row .n {
+    font-family: 'Chakra Petch', sans-serif;
+    font-size: 30px; font-weight: 700;
+    color: var(--ash);
+  }
+  .row.hot .n { color: var(--emerald); }
+  .row .z { color: var(--bone); }
+
+  .empty {
+    padding: 14px;
+    font-size: 21px; color: var(--ash);
+    text-align: center;
+  }
+
+  /* the four headline numbers */
+  .totals {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 12px; margin-top: 18px;
+  }
+  .tot {
+    padding: 12px 8px; text-align: center;
+    background: rgba(232,184,56,.06);
+    border: 1px solid rgba(232,184,56,.26);
+    border-radius: 4px;
+  }
+  .tot b {
+    display: block;
+    font-size: 38px; font-weight: 700; line-height: 1;
+    color: var(--gold-hot);
+  }
+  .tot span {
+    display: block; margin-top: 5px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--ash);
+  }
+
+  footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 14px; margin-top: 14px;
+    border-top: 2px solid rgba(232,184,56,.24);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--ash);
+  }
+  .live { color: var(--emerald); }
+  .live::before {
+    content: '';
+    display: inline-block;
+    width: 9px; height: 9px; margin-right: 9px;
+    border-radius: 50%;
+    background: var(--emerald);
+    box-shadow: 0 0 10px var(--emerald);
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="inner">
+    <header>
+      <h1 id="title">NAIJA 2046 PVP</h1>
+      <div class="sub">Talk to the handler to get in</div>
+    </header>
+
+    <div class="cols">
+      <div class="col">
+        <h2>Queue</h2>
+        <div class="rows" id="queue"></div>
+      </div>
+      <div class="col">
+        <h2>Open rooms</h2>
+        <div class="rows" id="zones"></div>
+      </div>
+    </div>
+
+    <div class="totals">
+      <div class="tot"><b id="tLobby">0</b><span>In the lobby</span></div>
+      <div class="tot"><b id="tQueue">0</b><span>Queued</span></div>
+      <div class="tot"><b id="tMatches">0</b><span>Live matches</span></div>
+      <div class="tot"><b id="tRooms">0</b><span>Open rooms</span></div>
+    </div>
+
+    <footer>
+      <span>PVP &middot; Ranked &middot; Rooms</span>
+      <span class="live" id="updated">Live</span>
+    </footer>
+  </div>
+</div>
+
+<script>
+  const esc = s => String(s ?? '').replace(/[&<>"']/g,
+    c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+  /* Write only when the value is different. A write that changes nothing
+     still invalidates layout, and most updates change nothing. */
+  function setText(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const v = String(value ?? '');
+    if (el.textContent !== v) el.textContent = v;
+  }
+
+  /* Build the rows once, then update their contents. Rebuilt only when the
+     NUMBER of rows changes, which is when a mode is added or removed. */
+  const rowCounts = {};
+
+  function paintRows(hostId, items, emptyText) {
+    const host = document.getElementById(hostId);
+    if (!host) return;
+
+    if (!items.length) {
+      if (rowCounts[hostId] !== -1) {
+        host.innerHTML = `<p class="empty">${esc(emptyText)}</p>`;
+        rowCounts[hostId] = -1;
+      }
+      return;
+    }
+
+    if (rowCounts[hostId] !== items.length) {
+      host.innerHTML = items.map(() => `
+        <div class="row"><span class="z"></span><span class="n"></span></div>`).join('');
+      rowCounts[hostId] = items.length;
+    }
+
+    const rows = host.children;
+    items.forEach((it, i) => {
+      const row = rows[i];
+      if (!row) return;
+
+      const label = row.querySelector('.z');
+      const num = row.querySelector('.n');
+
+      if (label.textContent !== String(it.label)) label.textContent = it.label;
+      if (num.textContent !== String(it.n)) num.textContent = it.n;
+
+      row.classList.toggle('hot', !!it.n);
+    });
+  }
+
+  function render(d) {
+    if (!d) return;
+
+    const q = d.queue || [];
+    const totalQueued = q.reduce((a, x) => a + (x.count || 0), 0);
+
+    // Rows are updated in place, not rebuilt.
+    //
+    // Replacing innerHTML throws away every node and lays the list out again
+    // to change one number. These numbers change every couple of seconds,
+    // and the labels almost never do.
+    paintRows('queue', q.map(m => ({ label: m.label, n: m.count || 0 })),
+              'No modes configured');
+
+    const z = d.zones || [];
+    paintRows('zones', z.slice(0, 5).map(x => ({ label: x.name, n: x.players || 0 })),
+              'Nothing running');
+
+    setText('tLobby', d.lobby || 0);
+    setText('tQueue', totalQueued);
+    setText('tMatches', d.liveMatches || 0);
+    setText('tRooms', d.rooms || 0);
+  }
+
+  /* One listener, registered once.
+   
+     A second listener on the same page would double every update -- the work
+     twice over for the same result -- and they are easy to add by accident
+     when a page gets edited. */
+  window.addEventListener('message', e => {
+    const d = e.data || {};
+
+    // Asleep: nobody is near this board. Everything stops moving, and the
+    // page is left exactly as it is so waking is instant.
+    if (d.action === 'sleep') {
+      document.body.classList.add('sleep');
+      return;
+    }
+
+    if (d.action === 'wake') {
+      document.body.classList.remove('sleep');
+      return;
+    }
+
+    // Nothing is rendered while asleep. The client should not be sending
+    // anything either, but a page that draws when nobody can see it is the
+    // exact cost this is here to avoid.
+    if (document.body.classList.contains('sleep')) return;
+
+    if (d.action === 'info') render(d.data);
+  });
+
+  // Open with ?preview in a browser to design it without launching FiveM.
+  if (new URLSearchParams(location.search).has('preview')) {
+    render({
+      queue: [
+        { label: '1v1', count: 3 },
+        { label: '2v2', count: 0 },
+        { label: '3v3', count: 2 },
+        { label: 'Squad 5v5', count: 0 }
+      ],
+      zones: [
+        { name: 'Docks', players: 7 },
+        { name: 'Rooftops', players: 2 },
+        { name: 'Quarry', players: 0 }
+      ],
+      lobby: 12, liveMatches: 2, rooms: 3
+    });
+  }
+</script>
+</body>
+</html>

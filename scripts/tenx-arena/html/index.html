@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arena Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- shown while the panel is minimised so you can walk to a corner -->
+<div id="minibar" class="minibar hidden">
+  <span class="minibar-dot"></span>
+  <span class="minibar-text">Arena builder is waiting</span>
+  <button id="restoreBtn" class="minibar-btn">Bring it back</button>
+</div>
+
+
+<!-- ══ RANKED ════════════════════════════════════════════ -->
+<div id="rankedRoot" class="hidden">
+  <div class="scrim"></div>
+  <main class="console ranked-console" role="dialog" aria-label="Ranked">
+    <header class="bar">
+      <div class="mark">
+        <span class="mark-season" id="rkSeason">Season 3 &middot; Competitive</span>
+        <h1 class="mark-title" id="rkTitle">Ranked</h1>
+      </div>
+      <div class="bar-right">
+        <button id="toCasual" class="btn ranked-switch">Back to casual</button>
+        <button id="rkClose" class="icon-btn" aria-label="Close">&#10005;</button>
+      </div>
+    </header>
+
+    <div class="body">
+      <nav class="rail">
+        <button class="rail-item" data-rktab="play">
+          <span class="rail-label">Play</span>
+          <span class="rail-meta" id="rkPlayMeta">Queue ranked</span>
+        </button>
+        <button class="rail-item is-active" data-rktab="dash">
+          <span class="rail-label">Standing</span>
+          <span class="rail-meta" id="rkRailDash">Your rank</span>
+        </button>
+        <button class="rail-item" data-rktab="ladder">
+          <span class="rail-label">Ladder</span>
+          <span class="rail-meta">Every tier</span>
+        </button>
+        <button class="rail-item" data-rktab="top">
+          <span class="rail-label">Top players</span>
+          <span class="rail-meta">By rating</span>
+        </button>
+        <button class="rail-item" data-rktab="history">
+          <span class="rail-label">History</span>
+          <span class="rail-meta">Recent results</span>
+        </button>
+      </nav>
+
+      <section class="stage">
+
+        <!-- STANDING -->
+        <div class="rkpanel" data-rkpanel="play">
+          <div class="section-head">
+            <h2>Ranked queue</h2>
+            <p>Every match here moves your rating. Queue from the casual panel if you'd rather it didn't.</p>
+          </div>
+          <div class="mode-grid" id="rkModes"></div>
+
+          <div class="section-head"><h2>First to</h2></div>
+          <div class="score-grid" id="rkScores"></div>
+
+          <div class="p-actions">
+            <button id="rkQueueBtn" class="btn btn-primary">Join ranked queue</button>
+            <button id="rkLeaveQueueBtn" class="btn hidden">Leave queue</button>
+          </div>
+        </div>
+
+        <div class="rkpanel is-active" data-rkpanel="dash">
+          <div class="rank-hero">
+            <div class="rank-hero-badge" id="rkBadge"></div>
+            <div class="rank-hero-body">
+              <span class="rank-eyebrow" id="rkProvisional">Rating</span>
+              <span class="rank-name" id="rkName">Unranked</span>
+              <span class="rank-elo"><b id="rkElo">1000</b> rating</span>
+              <div class="rank-progress">
+                <div class="rank-progress-head">
+                  <span id="rkNextLabel">&mdash;</span>
+                  <span id="rkNextElo">&mdash;</span>
+                </div>
+                <div class="meter is-rank"><i id="rkMeter" style="width:0%"></i></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rank-stats">
+            <div class="stat"><span class="stat-label">Wins</span><span class="stat-value is-good" id="rkWins">0</span></div>
+            <div class="stat"><span class="stat-label">Losses</span><span class="stat-value is-bad" id="rkLosses">0</span></div>
+            <div class="stat"><span class="stat-label">Win rate</span><span class="stat-value" id="rkRate">0%</span></div>
+            <div class="stat"><span class="stat-label">Peak</span><span class="stat-value is-rank" id="rkPeak">1000</span></div>
+            <div class="stat"><span class="stat-label">Streak</span><span class="stat-value" id="rkStreak">0</span></div>
+          </div>
+
+          <div class="section-head">
+            <h2>How rating moves</h2>
+            <p>Beating someone above you is worth more than beating someone below. Losing to someone below costs more than losing to someone above.</p>
+          </div>
+          <div class="card"><p class="card-note" id="rkExplain">&mdash;</p></div>
+        </div>
+
+        <!-- LADDER -->
+        <div class="rkpanel" data-rkpanel="ladder">
+          <div class="section-head">
+            <h2>The ladder</h2>
+            <p>Every tier and what it takes. Yours is marked.</p>
+          </div>
+          <div class="ladder" id="rkLadder"></div>
+        </div>
+
+        <!-- TOP -->
+        <div class="rkpanel" data-rkpanel="top">
+          <div class="section-head"><h2>Top players</h2><p>By rating, this season.</p></div>
+          <div class="lb">
+            <div class="lb-head rk-head">
+              <span>#</span><span class="lb-player">Player</span>
+              <span>Rank</span><span>W</span><span>L</span><span>Rating</span>
+            </div>
+            <div class="lb-rows" id="rkTop"></div>
+          </div>
+        </div>
+
+        <!-- HISTORY -->
+        <div class="rkpanel" data-rkpanel="history">
+          <div class="section-head"><h2>Recent results</h2><p>What each match did to your rating.</p></div>
+          <div class="history" id="rkHistory"></div>
+        </div>
+
+      </section>
+    </div>
+
+    <footer class="foot">
+      <span id="rkFoot">Ready</span>
+      <span class="foot-brand">NAIJA 2046 · RANKED</span>
+    </footer>
+  </main>
+</div>
+
+<!-- ══ PLAYER PANEL ══════════════════════════════════════ -->
+<div id="pRoot" class="hidden">
+  <div class="scrim"></div>
+  <main class="console p-console" role="dialog" aria-label="Find a match">
+    <img class="watermark" src="logo.png" alt="">
+
+    <header class="bar">
+      <div class="mark">
+        <span class="mark-season">NAIJA 2046 · PVP</span>
+        <h1 class="mark-title" id="pTitle">Find a Match</h1>
+      </div>
+      <div class="bar-right">
+        <button id="toRanked" class="btn ranked-switch">Switch to ranked</button>
+        <button id="backToLobby" class="btn back-btn hidden">Back to lobby</button>
+        <div class="p-record" id="pRecord">0W · 0L</div>
+        <button id="pClose" class="icon-btn" aria-label="Close">&#10005;</button>
+      </div>
+    </header>
+
+    <div class="body">
+      <nav class="rail">
+        <button class="rail-item is-active" data-ptab="play"><span class="rail-label">PVP</span><span class="rail-meta" id="pRailPlay">Pick a mode</span></button>
+        <button class="rail-item" data-ptab="rooms"><span class="rail-label">Rooms</span><span class="rail-meta" id="pRailRooms">Create or join</span></button>
+        <button class="rail-item" data-ptab="board"><span class="rail-label">Leaderboard</span><span class="rail-meta">Top players</span></button>
+      </nav>
+
+      <section class="stage">
+
+        <!-- PLAY -->
+        <div class="ppanel is-active" data-ppanel="play">
+
+          <!-- who you are, and the four numbers worth knowing -->
+          <div class="hero-row">
+            <div class="hero">
+              <div>
+                <span class="hero-eyebrow">Season 3 &middot; Competitive</span>
+                <span class="hero-name" id="heroName">&mdash;</span>
+                <span class="hero-sub" id="heroSub">No matches yet</span>
+              </div>
+              <div class="hero-foot">
+                <span class="stat-label">Next rank at 10 matches</span>
+                <div class="meter"><i id="heroMeter" style="width:0%"></i></div>
+              </div>
+            </div>
+
+            <div class="stat">
+              <span class="stat-label">Wins</span>
+              <span class="stat-value is-good" id="heroWins">0</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Losses</span>
+              <span class="stat-value is-bad" id="heroLosses">0</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Win rate</span>
+              <span class="stat-value" id="heroRate">0%</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">War points</span>
+              <span class="stat-value is-gold" id="heroPoints">0</span>
+            </div>
+          </div>
+
+          <div class="section-head">
+            <h2>Mode</h2>
+            <p id="pQueueTally">Nobody in the queue</p>
+          </div>
+          <div class="mode-grid" id="pModes"></div>
+
+          <div id="pWeapons">
+            <div class="section-head"><h2>Weapons</h2><p>Everyone in the match gets the same</p></div>
+            <div class="wep-row">
+              <div class="wep-col"><span class="wep-label">Primary</span><div class="wep-grid" id="pPrimary"></div></div>
+              <div class="wep-col"><span class="wep-label">Sidearm</span><div class="wep-grid" id="pSidearm"></div></div>
+            </div>
+          </div>
+
+          <!-- shown instead, when everyone brings their own -->
+          <div id="pOwnWeapons" class="hidden">
+            <div class="section-head">
+              <h2>Your own kit</h2>
+              <p>You fight with whatever you're carrying. Buy it in the shop &mdash; press TAB to see what you have.</p>
+            </div>
+          </div>
+
+          <div class="section-head"><h2>First to</h2></div>
+          <div class="score-grid" id="pScores"></div>
+
+          <div class="p-actions">
+            <button id="pQueueBtn" class="btn btn-primary">Join queue</button>
+            <button id="pLeaveQueueBtn" class="btn btn-ghost hidden">Leave queue</button>
+          </div>
+          <p class="note" id="pLeaderNote"></p>
+        </div>
+
+        <!-- ROOMS -->
+        <div class="ppanel" data-ppanel="rooms">
+
+          <!-- not in one: browse or make one -->
+          <div id="rNone">
+            <div class="panel-head"><h2>Rooms</h2><span class="tally" id="rBrowseTally">&mdash;</span></div>
+            <p class="note note-top">A room is a lobby you control. Pick the weapons, items, rounds and kills, then start it when everyone's in. No waiting on matchmaking.</p>
+
+            <div class="p-actions">
+              <button id="rCreate" class="btn btn-primary">Create a room</button>
+              <button id="rRefresh" class="btn btn-ghost">Refresh</button>
+            </div>
+
+            <h3 class="sub-head">Join with a code</h3>
+            <div class="code-row">
+              <input type="text" id="rCode" maxlength="6" placeholder="ABCD" autocomplete="off">
+              <button id="rJoinCode" class="btn btn-ghost">Join</button>
+            </div>
+
+            <h3 class="sub-head">Public rooms</h3>
+            <div class="table" id="rBrowse"></div>
+          </div>
+
+          <!-- in one -->
+          <div id="rIn" class="hidden">
+            <div class="panel-head">
+              <h2 id="rName">Room</h2>
+              <span class="tally" id="rCodeTag">&mdash;</span>
+            </div>
+
+            <div class="room-grid">
+
+              <!-- teams -->
+              <section class="card">
+                <div class="card-head">
+                  <span class="card-title">Teams</span>
+                  <span class="card-state" id="rTeamState">&mdash;</span>
+                </div>
+                <p class="card-note">Click your own name to switch sides. As host you can move anyone.</p>
+                <div class="team-row">
+                  <div class="team team-a">
+                    <span class="team-label">Team A</span>
+                    <div class="room-members" id="rTeamA"></div>
+                  </div>
+                  <div class="team team-b">
+                    <span class="team-label">Team B</span>
+                    <div class="room-members" id="rTeamB"></div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- settings -->
+              <section class="card" id="rSettings">
+                <div class="card-head">
+                  <span class="card-title">Match</span>
+                  <span class="card-state" id="rHostState">&mdash;</span>
+                </div>
+
+                <span class="wep-label">Mode</span>
+                <div class="mode-grid" id="rModes"></div>
+
+                <div id="rRoundsBlock">
+                  <span class="wep-label" style="margin-top:14px">Best of</span>
+                  <div class="score-grid" id="rRounds"></div>
+                </div>
+
+                <span class="wep-label" style="margin-top:14px" id="rKillsLabel">Rounds to win the match</span>
+                <div class="score-grid" id="rKills"></div>
+
+                <div class="toggle-row" style="margin-top:16px">
+                  <button class="state-toggle" id="rPrivate">
+                    <span class="state-dot"></span>
+                    <span class="state-label">Private room</span>
+                    <span class="state-value" id="rPrivateValue">OFF</span>
+                  </button>
+                </div>
+
+                <h3 class="sub-head">Wager</h3>
+                <p class="fold-note">Each player stakes this. Winners take the pot. Taken when the match starts, and given back if it's called off.</p>
+                <div class="wager-pick" id="rWagerPick"></div>
+                <p class="card-note" id="rWagerNote" style="margin:8px 0 0"></p>
+
+                <h3 class="sub-head">Where you'll fight</h3>
+                <p class="fold-note">Pick one, or leave it on Any and you'll be dropped into whichever is free.</p>
+                <div class="arena-pick" id="rArenaPick"></div>
+              </section>
+
+              <!-- loadout -->
+              <section class="card">
+                <div class="card-head">
+                  <span class="card-title">Loadout</span>
+                  <span class="card-state">Everyone gets the same</span>
+                </div>
+
+                <div id="rWeapons">
+                  <span class="wep-label">Primary</span>
+                  <div class="wep-grid" id="rPrimary"></div>
+
+                  <span class="wep-label" style="margin-top:12px">Sidearm</span>
+                  <div class="wep-grid" id="rSidearm"></div>
+
+                  <p class="card-note" id="rWeaponNote" style="margin:8px 0 0"></p>
+                </div>
+
+                <p class="card-note hidden" id="rOwnWeapons" style="margin:0 0 4px">
+                  Everyone fights with what they're carrying. Only the supplies
+                  below are handed out.
+                </p>
+
+                <span class="wep-label" style="margin-top:12px">Items per life</span>
+                <div class="item-grid" id="rItems"></div>
+              </section>
+
+              <!-- people -->
+              <section class="card">
+                <div class="card-head">
+                  <span class="card-title">Invite</span>
+                  <span class="card-state" id="rInviteState">&mdash;</span>
+                </div>
+                <p class="card-note">Anyone standing near you shows here. For anyone else, give them the code.</p>
+                <div class="table" id="rNearby"></div>
+
+                <div class="code-row" style="margin-top:12px">
+                  <input type="number" id="rInviteId" placeholder="ID" autocomplete="off">
+                  <button id="rInviteById" class="btn btn-ghost">Invite by ID</button>
+                </div>
+
+                <div id="rTestBox" class="test-box hidden">
+                  <span class="test-label">Test mode</span>
+                  <p class="note">Dummies fill the slots so you can start a match alone. They do not fight back.</p>
+                  <div class="p-actions">
+                    <button id="rAddDummy" class="btn btn-ghost">Add one</button>
+                    <button id="rFillDummies" class="btn btn-ghost">Fill the room</button>
+                  </div>
+                </div>
+              </section>
+
+            </div>
+
+            <div class="p-actions">
+              <button id="rStart" class="btn btn-primary">Start the match</button>
+              <button id="rLeave" class="btn btn-ghost">Leave room</button>
+            </div>
+            <p class="note" id="rStartNote"></p>
+          </div>
+        </div>
+
+        <!-- LEADERBOARD -->
+        <div class="ppanel" data-ppanel="board">
+          <div class="panel-head">
+            <h2>Leaderboard</h2>
+            <span class="tally" id="pYou">&mdash;</span>
+          </div>
+
+          <!-- two boards, two different achievements -->
+          
+
+          <p class="card-note" id="boardNote" style="margin:12px 0 14px"></p>
+
+          <div class="lb">
+            <div class="lb-head" id="lbHead">
+              <span>#</span>
+              <span class="lb-player">Player</span>
+              <span>Kills</span>
+              <span>Deaths</span>
+              <span>K/D</span>
+              <span id="lbColA">W</span>
+              <span id="lbColB">L</span>
+              <span>Points</span>
+            </div>
+            <div class="lb-rows" id="pBoard"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="foot">
+      <span id="pFoot">Ready</span>
+      <span class="foot-brand">tenx-arena</span>
+    </footer>
+  </main>
+</div>
+
+<!-- ══ READY CHECK ═══════════════════════════════════════ -->
+<!-- match found: an announcement, not a question -->
+<div id="matchFound" class="modal-layer hidden">
+  <div class="found-card">
+    <span class="found-eyebrow">Match found</span>
+    <span class="found-mode" id="foundMode">1v1</span>
+    <div class="found-bar"><i id="foundBar"></i></div>
+    <span class="found-note">Taking you in&hellip;</span>
+  </div>
+</div>
+
+<div id="readyCheck" class="modal-layer hidden">
+  <div class="ready-card">
+    <span class="ready-eyebrow">Match found</span>
+    <h2 class="ready-title" id="readyMode">1v1</h2>
+    <div class="ready-bar"><i id="readyBar"></i></div>
+    <p class="ready-count" id="readyCount">Waiting for everyone</p>
+    <div class="ready-btns">
+      <button id="readyAccept" class="btn btn-primary">Accept</button>
+      <button id="readyDecline" class="btn btn-ghost">Decline</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAP VOTE ══════════════════════════════════════════ -->
+<div id="mapVote" class="modal-layer hidden">
+  <div class="vote-card">
+    <div class="vote-head">
+      <span class="ready-eyebrow">Vote for the arena</span>
+      <span class="vote-clock" id="voteClock"></span>
+    </div>
+    <div class="ready-bar"><i id="voteBar"></i></div>
+    <div class="vote-grid" id="voteGrid"></div>
+    <p class="ready-count" id="voteHint">Pick one &mdash; most votes wins, a tie is decided on the toss</p>
+  </div>
+</div>
+
+<!-- ══ IN-MATCH OVERLAYS ═════════════════════════════════ -->
+<div id="aHud" class="hidden">
+  <div class="a-banner" id="aBanner">
+    <div class="a-banner-glow"></div>
+    <div class="a-banner-inner">
+      <span class="a-banner-eyebrow" id="aBannerEyebrow"></span>
+      <span class="a-banner-title" id="aBannerTitle"></span>
+      <span class="a-banner-sub" id="aBannerSub"></span>
+    </div>
+  </div>
+
+  <div class="scoreboard hidden" id="scoreboard">
+    <div class="sb-score team-a" id="sbScoreA">0</div>
+    <div class="sb-roster" id="sbRosterA"></div>
+    <div class="sb-mid"><span class="sb-mode" id="sbMode">1v1</span><span class="sb-target" id="sbTarget">to 7</span></div>
+    <div class="sb-roster" id="sbRosterB"></div>
+    <div class="sb-score team-b" id="sbScoreB">0</div>
+  </div>
+
+  <!-- small kill feed, top left -->
+  <div class="mfeed" id="mfeed"></div>
+
+  <!-- respawn countdown (deathmatch) -->
+  <div class="respawn hidden" id="respawnCard">
+    <span class="respawn-eyebrow">You were killed</span>
+    <span class="respawn-num" id="respawnNum">5</span>
+    <span class="respawn-sub">back in</span>
+  </div>
+
+  <!-- down for the round (rounds mode) -->
+  <div class="downed hidden" id="downedCard">
+    <span class="respawn-eyebrow">You are down</span>
+    <span class="downed-title" id="downedTitle">Waiting for the round</span>
+    <span class="downed-sub" id="downedSub">Your team is still in it</span>
+  </div>
+
+  <!-- spawn protection -->
+  <div class="protect hidden" id="protectPill">
+    <span class="protect-dot"></span>
+    <span id="protectText">Protected</span>
+  </div>
+
+  <!-- result -->
+  <div class="result hidden" id="resultCard">
+    <span class="result-eyebrow" id="resultEyebrow">Match over</span>
+    <span class="result-title" id="resultTitle">VICTORY</span>
+    <div class="result-score">
+      <span class="result-a" id="resultA">0</span>
+      <span class="result-dash">&ndash;</span>
+      <span class="result-b" id="resultB">0</span>
+    </div>
+    <div class="result-rows" id="resultRows"></div>
+  </div>
+</div>
+
+  <!-- The hotbar is deliberately OUTSIDE #aHud.
+       It used to live inside it, and #aHud is display:none except during a
+       match -- so unhiding the hotbar did nothing at all anywhere else. It
+       rendered correctly, into a hidden parent. That is why the kit worked in
+       the Red Zone in every respect except being visible.
+       Out here it answers only to renderHotbar. -->
+  <div class="hotbar hidden" id="hotbar"></div>
+
+  <!-- "you received X" cards. Top level for the same reason as the hotbar:
+       these fire in the lobby, the shop and other resources' modes, none of
+       which unhide #aHud. -->
+  <div id="itemToasts"></div>
+
+  <!-- Interaction bubbles and podium labels. Both are world positions turned
+       into screen ones by the client, so they are absolutely positioned
+       inside a full-screen layer rather than laid out. -->
+  <div id="worldLayer">
+    <div id="prompt3d" class="hidden">
+      <div class="p3-body">
+        <span class="p3-title" id="p3Title"></span>
+        <div class="p3-rows" id="p3Rows"></div>
+      </div>
+      <div class="p3-tail"></div>
+    </div>
+    <div id="podiumLabels"></div>
+  </div>
+
+<!-- ══ INVITE TOAST ══════════════════════════════════════ -->
+<div id="inviteToast" class="invite-toast hidden">
+  <div class="invite-bar"><i id="inviteBar"></i></div>
+  <div class="invite-inner">
+    <div class="invite-body">
+      <span class="invite-eyebrow">Party invite</span>
+      <strong id="inviteFrom">Someone</strong>
+      <span class="invite-mode" id="inviteMode">1v1</span>
+    </div>
+    <div class="invite-keys">
+      <span class="invite-key is-yes"><b id="inviteYesKey">Y</b>Accept</span>
+      <span class="invite-key is-no"><b id="inviteNoKey">N</b>Decline</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MATCH INVENTORY ═══════════════════════════════════ -->
+<div id="invRoot" class="hidden">
+  <div class="scrim"></div>
+  <div class="inv-panel" role="dialog" aria-label="Match inventory">
+    <div class="inv-head">
+      <div>
+        <span class="inv-eyebrow">Match inventory</span>
+        <h2 class="inv-title">Loadout</h2>
+      </div>
+      <div class="inv-weight">
+        <div class="inv-weight-bar"><i id="invWeightBar"></i></div>
+        <span class="inv-weight-text" id="invWeightText">0 / 100 kg</span>
+      </div>
+      <button id="invClose" class="icon-btn" aria-label="Close">&#10005;</button>
+    </div>
+
+    <div class="inv-section">Hotbar &mdash; your number keys</div>
+    <div class="inv-grid" id="invGrid"></div>
+
+    <p class="inv-hint">Drag to rearrange, or hold <b>Shift</b> while dragging to move part of a stack. Double-click to use. Whatever sits in the first slots is what your number keys do.</p>
+
+    <!-- right-click a slot: amount, then what to do with it -->
+    <div class="ctx hidden" id="ctxBox">
+      <div class="ctx-head">
+        <span class="ctx-name" id="ctxName">&mdash;</span>
+        <span class="ctx-have" id="ctxHave">&mdash;</span>
+      </div>
+      <div class="ctx-amount">
+        <input type="range" id="ctxSlider" min="1" max="1" value="1">
+        <input type="number" class="ctx-value" id="ctxValue" min="1" value="1"
+               aria-label="How many">
+      </div>
+      <div class="ctx-quick">
+        <button class="ctx-chip" data-ctx-set="1">1</button>
+        <button class="ctx-chip" data-ctx-set="half">Half</button>
+        <button class="ctx-chip" data-ctx-set="max">All</button>
+      </div>
+
+      <div class="ctx-actions">
+        <button class="ctx-btn" id="ctxUse">Use</button>
+        <button class="ctx-btn" id="ctxGive">Give</button>
+        <button class="ctx-btn ctx-wide" id="ctxDrop">Drop on the ground</button>
+        <button class="ctx-btn is-quiet" id="ctxClose">Close</button>
+      </div>
+
+      <!-- who to give it to, once Give is picked -->
+      <div class="ctx-targets hidden" id="ctxTargets">
+        <span class="ctx-sub">Who?</span>
+        <div id="ctxNearby"></div>
+      </div>
+    </div>
+
+    <!-- how many to move, when splitting a stack -->
+    <div class="split hidden" id="splitBox">
+      <span class="split-label" id="splitWhat">Move how many?</span>
+      <div class="split-row">
+        <button class="split-step" data-split="-10">&minus;10</button>
+        <button class="split-step" data-split="-1">&minus;1</button>
+        <input type="number" id="splitAmount" min="1" value="1">
+        <button class="split-step" data-split="1">+1</button>
+        <button class="split-step" data-split="10">+10</button>
+      </div>
+      <div class="split-row">
+        <button class="mini" id="splitHalf">Half</button>
+        <button class="mini" id="splitAll">All</button>
+        <button class="btn btn-primary" id="splitGo">Move</button>
+        <button class="mini" id="splitCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SHOP ══════════════════════════════════════════════ -->
+<div id="shopRoot" class="hidden">
+  <div class="scrim"></div>
+  <main class="console shop-console" role="dialog" aria-label="Arena Shop">
+    <img class="watermark" src="logo.png" alt="">
+
+    <header class="bar">
+      <div class="mark">
+        <span class="mark-season">NAIJA 2046 · ARENA</span>
+        <h1 class="mark-title">Shop</h1>
+      </div>
+      <div class="bar-right">
+        <div class="wallet"><span id="shopCoins">0</span> <b id="shopShort">RZC</b></div>
+        <button id="shopClose" class="icon-btn" aria-label="Close">&#10005;</button>
+      </div>
+    </header>
+
+    <div class="body">
+      <nav class="rail shop-rail">
+        <div id="shopCats"></div>
+
+        <!-- Cash out lives here, under the categories: it is a thing you do
+             once in a while, not something that belongs beneath every shelf
+             in the shop. -->
+        <div class="convert" id="convertBox">
+          <div class="convert-head">
+            <span class="convert-title">Cash out</span>
+            <span class="convert-rate" id="convertRate">&mdash;</span>
+          </div>
+          <p class="convert-note">Straight to your <strong>bank</strong>.</p>
+          <div class="convert-row">
+            <input type="number" id="convertAmount" placeholder="0" min="0">
+            <button id="convertBtn" class="btn btn-primary">Convert</button>
+          </div>
+          <p class="convert-preview" id="convertPreview"></p>
+        </div>
+      </nav>
+
+      <section class="stage shop-stage">
+        <div id="shopItems" class="shop-grid"></div>
+
+        <!-- Appears once there's something in it. Sits at the bottom of the
+             stage so it never covers what you're browsing. -->
+        <div class="cart hidden" id="cartBar">
+          <div class="cart-lines" id="cartLines"></div>
+          <div class="cart-foot">
+            <div class="cart-total">
+              <span class="cart-total-label" id="cartCount">0 items</span>
+              <span class="cart-total-value" id="cartTotal">0</span>
+            </div>
+            <div class="cart-actions">
+              <button class="mini mini-danger" id="cartClear">Clear</button>
+              <button class="btn btn-primary" id="cartBuy">Buy it all</button>
+            </div>
+          </div>
+          <p class="cart-warn hidden" id="cartWarn"></p>
+        </div>
+      </section>
+    </div>
+
+    <footer class="foot">
+      <span id="shopFoot">Ready</span>
+      <span class="foot-brand">tenx-arena</span>
+    </footer>
+  </main>
+</div>
+
+<div id="root" class="hidden">
+  <div class="scrim"></div>
+
+  <main class="console" role="dialog" aria-label="Arena builder">
+    <img class="watermark" src="logo.png" alt="">
+
+    <header class="bar">
+      <div class="mark">
+        <span class="mark-season">NAIJA 2046 · ARENA</span>
+        <h1 class="mark-title">Control</h1>
+      </div>
+      <div class="bar-right">
+        <div id="statusPill" class="pill pill-idle">
+          <span class="pill-dot"></span>
+          <span id="statusText">No arenas</span>
+        </div>
+        <button id="minBtn" class="icon-btn" title="Step out and mark a spot">&#8211;</button>
+        <button id="closeBtn" class="icon-btn" aria-label="Close">&#10005;</button>
+      </div>
+    </header>
+
+    <div class="body">
+
+      <!-- what's happening, then the arenas -->
+      <nav class="rail rail-wide">
+        <button class="rail-item is-active" data-atab="live">
+          <span class="rail-label">Live</span>
+          <span class="rail-meta" id="liveMeta">Nothing running</span>
+        </button>
+        <button class="rail-item" data-atab="people">
+          <span class="rail-label">Players</span>
+          <span class="rail-meta" id="peopleMeta">&mdash;</span>
+        </button>
+
+        <div class="rail-head" style="margin-top:14px">
+          <span>Arenas</span>
+          <button id="newArenaBtn" class="mini">New</button>
+        </div>
+        <div id="arenaList" class="arena-list"></div>
+      </nav>
+
+      <section class="stage">
+
+        <!-- ══ LIVE ══ -->
+        <div class="panel is-active" data-panel="live">
+          <div class="hero-row">
+            <div class="stat"><span class="stat-label">Live matches</span>
+              <span class="stat-value is-good" id="cLive">0</span></div>
+            <div class="stat"><span class="stat-label">In the lobby</span>
+              <span class="stat-value" id="cLobby">0</span></div>
+            <div class="stat"><span class="stat-label">Queued</span>
+              <span class="stat-value" id="cQueued">0</span></div>
+            <div class="stat"><span class="stat-label">Open rooms</span>
+              <span class="stat-value is-gold" id="cRooms">0</span></div>
+          </div>
+
+          <div class="section-head"><h2>Matches</h2><p>Everything running right now</p></div>
+          <div id="cMatches"></div>
+
+          
+          <div id="cZones"></div>
+        </div>
+
+        <!-- ══ PLAYERS ══ -->
+        <div class="panel" data-panel="people">
+          <div class="section-head">
+            <h2>Players</h2>
+            <p>Everyone in the arena world. Give or take coins, or pull someone out.</p>
+          </div>
+
+          <div class="code-row" style="margin-bottom:14px">
+            <input type="text" id="cSearch" placeholder="Search by name">
+            <button class="mini" id="cShowAll">Show everyone</button>
+          </div>
+
+          <div id="cPeople"></div>
+        </div>
+
+        <!-- nothing selected -->
+        <div class="panel" data-panel="empty">
+          <div class="hero-empty">
+            <h2>Build an arena</h2>
+            <p>Walk to one corner of the space you want to use, mark it, walk to the opposite corner, mark that. You get a box nobody can leave.</p>
+            <p class="hero-note">Players inside an arena are moved into their own routing bucket. They stop existing to the rest of the server, which is what keeps gunfire from ever reaching a dispatch script — nothing to patch, nothing that breaks when your dispatch resource updates.</p>
+            <button id="newArenaBtn2" class="btn btn-primary">Create the first arena</button>
+          </div>
+        </div>
+
+        <!-- editing one -->
+        <div class="panel" data-panel="edit">
+
+          <div class="panel-head">
+            <h2 id="editName">Arena</h2>
+            <span class="tally" id="editMeta">&mdash;</span>
+          </div>
+
+          <div class="edit-grid">
+
+            <!-- boundary -->
+            <section class="card">
+              <div class="card-head">
+                <span class="card-title">Boundary</span>
+                <span class="card-state" id="boundsState">Not set</span>
+              </div>
+              <p class="card-note" id="boundsNote">Mark two opposite corners. Height is measured up from the lower one.</p>
+
+              <div class="grid2">
+                <label class="mini-field"><span>Height (m)</span><input type="number" id="boxHeight" value="30"></label>
+              </div>
+
+              <div class="btn-row">
+                <button class="btn btn-primary" data-act="startMarking">Mark the zone</button>
+                <button class="btn btn-ghost" data-act="clearBounds">Clear</button>
+              </div>
+              <p class="fold-note">Walk the shape and press E at each point &mdash; three or more, any shape you like. Enter saves it, Backspace cancels.</p>
+            </section>
+
+            <!-- spawns -->
+            <section class="card">
+              <div class="card-head">
+                <span class="card-title">Spawn points</span>
+                <span class="card-state" id="spawnState">&mdash;</span>
+              </div>
+              <p class="card-note">Stand where you want players to appear and add it. More than one per team means they don't all land on the same spot.</p>
+
+              <div class="team-row">
+                <div class="team team-a">
+                  <span class="team-label">Team A</span>
+                  <span class="team-count" id="countA">0</span>
+                  <div class="team-btns">
+                    <button class="mini" data-spawn="A">Add here</button>
+                    <button class="mini mini-danger" data-clearspawn="A">Clear</button>
+                  </div>
+                </div>
+                <div class="team team-b">
+                  <span class="team-label">Team B</span>
+                  <span class="team-count" id="countB">0</span>
+                  <div class="team-btns">
+                    <button class="mini" data-spawn="B">Add here</button>
+                    <button class="mini mini-danger" data-clearspawn="B">Clear</button>
+                  </div>
+                </div>
+              </div>
+
+            </section>
+
+            <!-- loadout -->
+            <section class="card">
+              <div class="card-head">
+                <span class="card-title">Loadout</span>
+                <span class="card-state" id="loadoutState">&mdash;</span>
+              </div>
+              <p class="card-note">What players are given on the way in. Leave it on the default to share one list across every arena.</p>
+
+              <label class="mini-field check">
+                <input type="checkbox" id="useDefaultLoadout">
+                <span>Use the default loadout</span>
+              </label>
+
+              <div id="loadoutEditor">
+                <div class="itemlist" id="loadoutList"></div>
+                <button class="mini add-row" id="addLoadoutRow">Add an item</button>
+              </div>
+
+              <div class="btn-row">
+                <button class="btn btn-ghost" id="saveLoadoutBtn">Save loadout</button>
+              </div>
+            </section>
+
+            <!-- settings + test -->
+            <section class="card">
+              <div class="card-head">
+                <span class="card-title">Settings and testing</span>
+                <span class="card-state" id="bucketState">&mdash;</span>
+              </div>
+
+              <div class="grid2">
+                <label class="mini-field"><span>Name</span><input type="text" id="arenaName"></label>
+              </div>
+
+              <!-- State first, action second. A button labelled by what it
+                   DOES reads as what it IS -- "Switch off" looks like the
+                   arena is off. These show the state and flip on click. -->
+              <div class="toggle-row">
+                <button class="state-toggle is-on" data-act="toggleArena" id="enableBtn">
+                  <span class="state-dot"></span>
+                  <span class="state-label">Arena</span>
+                  <span class="state-value" id="enableValue">ON</span>
+                </button>
+                <button class="state-toggle is-on" data-act="toggleWall" id="wallBtn">
+                  <span class="state-dot"></span>
+                  <span class="state-label">Boundary shown</span>
+                  <span class="state-value" id="wallValue">ON</span>
+                </button>
+              </div>
+
+              <div class="btn-row">
+                <button class="btn btn-ghost" data-act="renameArena">Rename</button>
+              </div>
+
+              <p class="card-note" style="margin-top:14px">Drop yourself in to check the walls hold and the spawns sit where you meant. You'll be in the arena's own bucket, exactly as a player would be.</p>
+
+              <div class="btn-row">
+                <button class="btn btn-ghost" data-test="A">Go in as Team A</button>
+                <button class="btn btn-ghost" data-test="B">Go in as Team B</button>
+                <button class="btn btn-ghost" data-act="testLeave">Come back out</button>
+                <button class="btn btn-ghost" data-act="teleportTo">Fly me to it</button>
+              </div>
+
+              <div class="btn-row" style="margin-top:16px">
+                <button class="btn btn-danger" id="deleteBtn">Delete this arena</button>
+              </div>
+            </section>
+
+          </div>
+
+          <!-- who's inside right now -->
+          <h3 class="sub-head">Inside right now</h3>
+          <div class="table" id="occupantTable">
+            <p class="empty">Nobody is in an arena.</p>
+          </div>
+
+        </div>
+      </section>
+    </div>
+
+    <footer class="foot">
+      <span id="footMsg">Ready</span>
+      <span class="foot-brand">tenx-arena</span>
+    </footer>
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
